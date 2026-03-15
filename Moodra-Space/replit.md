@@ -8,12 +8,15 @@ Moodra is a next-gen AI writing environment for serious authors. The platform co
 - **Notion-like block editor**: 15+ block types with drag-and-drop reordering (@dnd-kit); solid FormatToolbar (no blur); selection-only AI improve; cursor-at-merge junction
 - **Deep Writing Mode**: True fullscreen overlay (`fixed inset-0 z-[200]`) — text always visible and scrollable
 - **Focus Timer**: Compact inline toolbar widget — arc progress, pulse dot, pause/stop micro-buttons, never expands
+- **Writing Sprint**: Toolbar timer button — set word goal + duration (5–60 min), countdown with +words written display, progress bar in deep writing mode bottom bar
+- **Typewriter Mode**: Cursor auto-scrolls to vertical center of screen on each keypress (keyboard icon in toolbar)
+- **Stats bar**: Click word count to toggle between words + reading time (÷225 wpm) / character count
 - **AI Co-author**: Streaming SSE generation — continue, develop, improve, ideas; free Pollinations toggle; regenerate button; paste-own-text editing; deeper style analysis (pov, rhythm, dialogueStyle, styleInstruction); scrollable output area; **Deepen Analysis** — collapsible panel with optional custom prompt that re-runs style analysis with added nuance
 - **Hypothesis system**: Track claims with statuses (hypothesis, testing, confirmed, refuted) + AI generation
 - **AI Research**: 6 categorized source suggestions per query
 - **Idea Board**: Canvas with draggable cards, SVG connections (support, contradict, cause, develop)
 - **Character database**: For fiction — biographies, traits, goals, conflicts
-- **Notes & ideas**: Sticker-style colored cards (7 colors), drag-drop reorder (@dnd-kit), status chips (idea/draft/wip/done), list/card toggle
+- **Notes & ideas**: Sticker-style colored cards (7 colors), drag-drop reorder (@dnd-kit), status chips (idea/draft/wip/done), list/card toggle; **quick-capture bar** (Enter to save instantly, Tab to expand to full dialog, click type icon to cycle type); **search filter** across title/content/tags; auto-resize textarea; Ctrl+Enter to save in dialog
 - **Export**: EPUB and PDF (A5 book template with cover, TOC, chapter headers, page numbers, callout blocks)
 - **Language system**: EN (default), RU, UA, DE — full UI + AI responses in chosen language
 - **Layout Mode**: Full book preview with pagination, 4 layout presets (Classic/Vibe/Mono/Modern), paragraph splitting across pages, footer alignment (left/center/right), headings use book font, CSS zoom

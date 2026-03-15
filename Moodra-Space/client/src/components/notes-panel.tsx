@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Note } from "@shared/schema";
@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
 import {
   FileText, Plus, Trash2, Edit, Lightbulb, MessageSquare, Hash, BookOpen, Star,
-  LayoutList, LayoutGrid, Paperclip, GripVertical, X, Check
+  LayoutList, LayoutGrid, Paperclip, GripVertical, X, Check, Search, Zap, ChevronRight
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -25,7 +25,7 @@ const NOTES_I18N = {
     newBtn: "New",
     all: "All",
     emptyTitle: "No notes yet",
-    emptyDesc: "Save your ideas and thoughts here",
+    emptyDesc: "Capture ideas with the quick-capture bar above, or create a detailed note",
     createNote: "+ Create note",
     editTitle: "Edit note",
     newTitle: "New note",
@@ -43,6 +43,10 @@ const NOTES_I18N = {
     deleted: "Note deleted",
     types: { idea: "Idea", note: "Note", quote: "Quote", concept: "Concept", question: "Question", scene: "Scene" },
     statuses: { idea: "Idea", draft: "Draft", wip: "In Progress", done: "Done" },
+    searchPlaceholder: "Search notes…",
+    quickCapturePlaceholder: "Quick idea… press Enter to save",
+    quickCaptureExpand: "More options",
+    noResults: "No notes match your search",
   },
   ru: {
     title: "Заметки и идеи",
@@ -50,7 +54,7 @@ const NOTES_I18N = {
     newBtn: "Новая",
     all: "Все",
     emptyTitle: "Нет заметок",
-    emptyDesc: "Сохраняй идеи и мысли здесь",
+    emptyDesc: "Фиксируй идеи в строке быстрого захвата выше или создай подробную заметку",
     createNote: "+ Создать заметку",
     editTitle: "Редактировать заметку",
     newTitle: "Новая заметка",
@@ -68,6 +72,10 @@ const NOTES_I18N = {
     deleted: "Заметка удалена",
     types: { idea: "Идея", note: "Заметка", quote: "Цитата", concept: "Концепция", question: "Вопрос", scene: "Сцена" },
     statuses: { idea: "Идея", draft: "Черновик", wip: "В работе", done: "Готово" },
+    searchPlaceholder: "Поиск заметок…",
+    quickCapturePlaceholder: "Быстрая идея… Enter для сохранения",
+    quickCaptureExpand: "Подробнее",
+    noResults: "Заметки не найдены",
   },
   ua: {
     title: "Нотатки та ідеї",
@@ -75,7 +83,7 @@ const NOTES_I18N = {
     newBtn: "Нова",
     all: "Всі",
     emptyTitle: "Немає нотаток",
-    emptyDesc: "Зберігай ідеї та думки тут",
+    emptyDesc: "Фіксуй ідеї у рядку швидкого захоплення або створи детальну нотатку",
     createNote: "+ Створити нотатку",
     editTitle: "Редагувати нотатку",
     newTitle: "Нова нотатка",
@@ -93,6 +101,10 @@ const NOTES_I18N = {
     deleted: "Нотатку видалено",
     types: { idea: "Ідея", note: "Нотатка", quote: "Цитата", concept: "Концепція", question: "Питання", scene: "Сцена" },
     statuses: { idea: "Ідея", draft: "Чернетка", wip: "У роботі", done: "Готово" },
+    searchPlaceholder: "Пошук нотаток…",
+    quickCapturePlaceholder: "Швидка ідея… Enter для збереження",
+    quickCaptureExpand: "Детальніше",
+    noResults: "Нотатки не знайдено",
   },
   de: {
     title: "Notizen & Ideen",
@@ -100,7 +112,7 @@ const NOTES_I18N = {
     newBtn: "Neu",
     all: "Alle",
     emptyTitle: "Noch keine Notizen",
-    emptyDesc: "Speichere deine Ideen und Gedanken hier",
+    emptyDesc: "Erfasse Ideen mit der Schnelleingabe oben oder erstelle eine detaillierte Notiz",
     createNote: "+ Notiz erstellen",
     editTitle: "Notiz bearbeiten",
     newTitle: "Neue Notiz",
@@ -118,6 +130,10 @@ const NOTES_I18N = {
     deleted: "Notiz gelöscht",
     types: { idea: "Idee", note: "Notiz", quote: "Zitat", concept: "Konzept", question: "Frage", scene: "Szene" },
     statuses: { idea: "Idee", draft: "Entwurf", wip: "In Arbeit", done: "Fertig" },
+    searchPlaceholder: "Notizen suchen…",
+    quickCapturePlaceholder: "Schnelle Idee… Enter zum Speichern",
+    quickCaptureExpand: "Mehr Optionen",
+    noResults: "Keine Notizen gefunden",
   },
 };
 
@@ -321,19 +337,36 @@ function ListRow({ note, onEdit, onDelete }: {
 }
 
 // ─── Note Dialog ─────────────────────────────────────────────────────
-function NoteDialog({ open, onClose, bookId, note }: {
-  open: boolean; onClose: () => void; bookId: number; note?: Note;
+function NoteDialog({ open, onClose, bookId, note, prefillTitle }: {
+  open: boolean; onClose: () => void; bookId: number; note?: Note; prefillTitle?: string;
 }) {
   const { toast } = useToast();
   const { lang } = useLang();
   const s = NOTES_I18N[lang];
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [title, setTitle] = useState(note?.title || "");
+  const [title, setTitle] = useState(note?.title || prefillTitle || "");
   const [content, setContent] = useState(note?.content || "");
   const [type, setType] = useState(note?.type || "idea");
   const [tags, setTags] = useState(note?.tags || "");
   const [color, setColor] = useState<string>((note as any)?.color || "yellow");
   const [status, setStatus] = useState<string>((note as any)?.status || "idea");
+
+  useEffect(() => {
+    if (open) {
+      setTitle(note?.title || prefillTitle || "");
+      setContent(note?.content || "");
+      setType(note?.type || "idea");
+      setTags(note?.tags || "");
+      setColor((note as any)?.color || "yellow");
+      setStatus((note as any)?.status || "idea");
+    }
+  }, [open, note?.id, prefillTitle]);
+
+  const autoResizeTextarea = () => {
+    const el = textareaRef.current;
+    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+  };
 
   const mutation = useMutation({
     mutationFn: (data: any) => note
@@ -408,13 +441,20 @@ function NoteDialog({ open, onClose, bookId, note }: {
           />
 
           <textarea
+            ref={textareaRef}
             value={content}
-            onChange={e => setContent(e.target.value)}
-            rows={4}
+            onChange={e => { setContent(e.target.value); autoResizeTextarea(); }}
+            onKeyDown={e => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (title.trim()) mutation.mutate({ title: title.trim(), content, type, tags, color, status });
+              }
+            }}
+            rows={5}
             placeholder={s.contentPlaceholder}
             className="w-full rounded-xl px-3 py-2.5 outline-none text-sm resize-none placeholder:text-muted-foreground leading-relaxed transition-all"
-            style={{ background: col.bg, border: `1.5px solid ${col.border}`, color: col.text }}
-            onFocus={e => { e.currentTarget.style.borderColor = col.clip; }}
+            style={{ background: col.bg, border: `1.5px solid ${col.border}`, color: col.text, minHeight: "120px", maxHeight: "320px", overflow: "auto" }}
+            onFocus={e => { e.currentTarget.style.borderColor = col.clip; autoResizeTextarea(); }}
             onBlur={e => { e.currentTarget.style.borderColor = col.border; }}
           />
 
@@ -489,6 +529,9 @@ function NoteDialog({ open, onClose, bookId, note }: {
           >
             {mutation.isPending ? s.saving : <><Check className="h-3.5 w-3.5" /> {s.save}</>}
           </button>
+          <div className="absolute bottom-[72px] right-5 text-[10px] text-muted-foreground/40 pointer-events-none select-none">
+            Ctrl+Enter
+          </div>
         </div>
       </div>
     </div>
@@ -503,9 +546,23 @@ export function NotesPanel({ bookId }: { bookId: number }) {
 
   const [showDialog, setShowDialog] = useState(false);
   const [editNote, setEditNote] = useState<Note | undefined>();
+  const [dialogPrefill, setDialogPrefill] = useState("");
   const [filter, setFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "cards">("cards");
   const [localOrder, setLocalOrder] = useState<number[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [quickCapture, setQuickCapture] = useState("");
+  const [quickCaptureType, setQuickCaptureType] = useState(0);
+  const quickCaptureRef = useRef<HTMLInputElement>(null);
+
+  const quickCaptureMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/books/${bookId}/notes`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
+      setQuickCapture("");
+      quickCaptureRef.current?.focus();
+    },
+  });
 
   const { data: notes = [], isLoading } = useQuery<Note[]>({
     queryKey: ["/api/books", bookId, "notes"],
@@ -526,7 +583,14 @@ export function NotesPanel({ bookId }: { bookId: number }) {
     ? localOrder.map(id => notes.find(n => n.id === id)).filter(Boolean) as Note[]
     : notes;
 
-  const filtered = filter === "all" ? orderedNotes : orderedNotes.filter(n => n.type === filter);
+  const searchLower = search.toLowerCase();
+  const filtered = orderedNotes
+    .filter(n => filter === "all" || n.type === filter)
+    .filter(n => !searchLower || (
+      n.title.toLowerCase().includes(searchLower) ||
+      (n.content || "").toLowerCase().includes(searchLower) ||
+      (n.tags || "").toLowerCase().includes(searchLower)
+    ));
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -537,17 +601,26 @@ export function NotesPanel({ bookId }: { bookId: number }) {
     setLocalOrder(arrayMove(ids, oldIdx, newIdx));
   }, [orderedNotes]);
 
+  const currentQcType = NOTE_TYPES[quickCaptureType % NOTE_TYPES.length];
+  const QcIcon = currentQcType.icon;
+
+  const handleQuickCapture = () => {
+    const title = quickCapture.trim();
+    if (!title) return;
+    quickCaptureMutation.mutate({ title, content: "", type: currentQcType.value, tags: "", color: "yellow", status: "idea" });
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+          <h2 className="font-bold text-sm flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
             {s.title}
           </h2>
-          <p className="text-muted-foreground text-xs mt-0.5">{s.count(notes.length)}</p>
         </div>
+        <span className="text-[11px] text-muted-foreground/60 flex-shrink-0">{s.count(notes.length)}</span>
         <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <button
             onClick={() => setViewMode("list")}
@@ -565,21 +638,39 @@ export function NotesPanel({ bookId }: { bookId: number }) {
           </button>
         </div>
         <button
-          onClick={() => { setEditNote(undefined); setShowDialog(true); }}
+          onClick={() => { setEditNote(undefined); setDialogPrefill(""); setShowDialog(true); }}
           data-testid="button-add-note"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
           style={{ background: "rgba(249,109,28,0.1)", color: "#F96D1C", border: "1px solid rgba(249,109,28,0.2)" }}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-3 w-3" />
           {s.newBtn}
         </button>
       </div>
 
+      {/* Search bar */}
+      <div className="px-4 pt-2.5 pb-1">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={s.searchPlaceholder}
+            className="w-full rounded-xl pl-8 pr-3 py-2 outline-none text-xs bg-secondary/60 border border-transparent focus:border-primary/25 transition-all placeholder:text-muted-foreground/50"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Filter chips */}
-      <div className="px-5 py-2 border-b border-border flex gap-1.5 overflow-x-auto">
+      <div className="px-4 py-1.5 flex gap-1.5 overflow-x-auto">
         <button
           onClick={() => setFilter("all")}
-          className="text-[11px] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap font-medium"
+          className="text-[10px] px-2.5 py-1 rounded-full transition-colors whitespace-nowrap font-medium"
           style={{ background: filter === "all" ? "#F96D1C" : "transparent", color: filter === "all" ? "#fff" : "#888", border: "1px solid", borderColor: filter === "all" ? "#F96D1C" : "#e5e7eb" }}
         >
           {s.all}
@@ -588,7 +679,7 @@ export function NotesPanel({ bookId }: { bookId: number }) {
           <button
             key={t.value}
             onClick={() => setFilter(t.value)}
-            className="text-[11px] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap font-medium"
+            className="text-[10px] px-2.5 py-1 rounded-full transition-colors whitespace-nowrap font-medium flex items-center gap-1"
             style={{
               background: filter === t.value ? `${t.accent}18` : "transparent",
               color: filter === t.value ? t.accent : "#888",
@@ -596,34 +687,92 @@ export function NotesPanel({ bookId }: { bookId: number }) {
               borderColor: filter === t.value ? `${t.accent}40` : "#e5e7eb",
             }}
           >
+            <t.icon className="h-2.5 w-2.5" />
             {s.types[t.value as keyof typeof s.types]}
           </button>
         ))}
       </div>
 
+      {/* Quick capture bar */}
+      <div className="px-4 pb-2.5">
+        <div
+          className="flex items-center gap-2 rounded-xl border-2 px-3 py-2 transition-all"
+          style={{ borderColor: "#F96D1C22", background: "#FFF7F0" }}
+        >
+          <button
+            onClick={() => setQuickCaptureType(prev => prev + 1)}
+            title="Click to change type"
+            className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+            style={{ background: `${currentQcType.accent}18`, color: currentQcType.accent }}
+          >
+            <QcIcon className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={quickCaptureRef}
+            value={quickCapture}
+            onChange={e => setQuickCapture(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && quickCapture.trim()) {
+                handleQuickCapture();
+              } else if (e.key === "Tab" && quickCapture.trim()) {
+                e.preventDefault();
+                setDialogPrefill(quickCapture);
+                setQuickCapture("");
+                setEditNote(undefined);
+                setShowDialog(true);
+              } else if (e.key === "Escape") {
+                setQuickCapture("");
+              }
+            }}
+            placeholder={s.quickCapturePlaceholder}
+            className="flex-1 bg-transparent outline-none text-xs placeholder:text-orange-300/70 text-orange-900"
+          />
+          {quickCapture.trim() ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => { setDialogPrefill(quickCapture); setQuickCapture(""); setEditNote(undefined); setShowDialog(true); }}
+                className="text-[10px] px-1.5 py-0.5 rounded-md font-medium transition-colors flex items-center gap-0.5"
+                style={{ color: "#F96D1C", background: "rgba(249,109,28,0.1)" }}
+                title={s.quickCaptureExpand + " (Tab)"}
+              >
+                <ChevronRight className="h-3 w-3" />
+              </button>
+              <button
+                onClick={handleQuickCapture}
+                disabled={quickCaptureMutation.isPending}
+                className="text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors flex items-center gap-0.5 text-white"
+                style={{ background: "#F96D1C" }}
+              >
+                <Zap className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <span className="text-[9px] text-orange-300/50 flex-shrink-0 hidden sm:block">Enter ↵</span>
+          )}
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className={viewMode === "cards" ? "p-4" : "p-3"}>
+      <div className="flex-1 overflow-y-auto border-t border-border/50">
+        <div className={viewMode === "cards" ? "p-3" : "p-3"}>
           {isLoading ? (
             <div className={viewMode === "cards" ? "grid grid-cols-2 gap-3" : "space-y-2"}>
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-40 bg-muted animate-pulse rounded-xl" />
               ))}
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl overflow-hidden">
+          ) : filtered.length === 0 && notes.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl overflow-hidden">
                 <img src="/moodra-app-icon.png" alt="Moodra" className="w-full h-full object-cover" />
               </div>
-              <h3 className="font-semibold mb-1.5">{s.emptyTitle}</h3>
-              <p className="text-muted-foreground text-sm mb-4">{s.emptyDesc}</p>
-              <button
-                onClick={() => setShowDialog(true)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                style={{ background: "rgba(249,109,28,0.1)", color: "#F96D1C", border: "1px solid rgba(249,109,28,0.2)" }}
-              >
-                {s.createNote}
-              </button>
+              <h3 className="font-semibold text-sm mb-1">{s.emptyTitle}</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed max-w-[200px] mx-auto">{s.emptyDesc}</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground text-sm">{s.noResults}</p>
             </div>
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -634,7 +783,7 @@ export function NotesPanel({ bookId }: { bookId: number }) {
                       <StickerCard
                         key={note.id}
                         note={note}
-                        onEdit={n => { setEditNote(n); setShowDialog(true); }}
+                        onEdit={n => { setEditNote(n); setDialogPrefill(""); setShowDialog(true); }}
                         onDelete={id => deleteMutation.mutate(id)}
                       />
                     ))}
@@ -645,7 +794,7 @@ export function NotesPanel({ bookId }: { bookId: number }) {
                       <ListRow
                         key={note.id}
                         note={note}
-                        onEdit={n => { setEditNote(n); setShowDialog(true); }}
+                        onEdit={n => { setEditNote(n); setDialogPrefill(""); setShowDialog(true); }}
                         onDelete={id => deleteMutation.mutate(id)}
                       />
                     ))}
@@ -659,9 +808,10 @@ export function NotesPanel({ bookId }: { bookId: number }) {
 
       <NoteDialog
         open={showDialog}
-        onClose={() => { setShowDialog(false); setEditNote(undefined); }}
+        onClose={() => { setShowDialog(false); setEditNote(undefined); setDialogPrefill(""); }}
         bookId={bookId}
         note={editNote}
+        prefillTitle={dialogPrefill}
       />
     </div>
   );

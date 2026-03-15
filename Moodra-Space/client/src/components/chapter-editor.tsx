@@ -30,6 +30,11 @@ import {
   Plus,
   Sparkles,
   RotateCcw,
+  Timer,
+  Keyboard,
+  Clock,
+  Zap,
+  ChevronUp,
 } from "lucide-react";
 import { BlockEditor, Block, blocksToPlainText, BlockEditorAPI } from "./block-editor";
 import { cn } from "@/lib/utils";
@@ -183,6 +188,15 @@ const EDITOR_I18N = {
     costNote: "Actual cost may vary slightly depending on text complexity.",
     costConfirm: "Confirm & Adapt",
     costBack: "← Back",
+    minRead: "min read",
+    chars: "chars",
+    sprintLabel: "Sprint",
+    sprintGoalPlaceholder: "Word goal…",
+    sprintStart: "Start",
+    sprintStop: "Stop",
+    sprintDone: "Sprint done!",
+    sprintWordsWritten: "words written",
+    typewriterMode: "Typewriter mode",
   },
   ru: {
     selectChapter: "Выберите главу для редактирования",
@@ -238,6 +252,15 @@ const EDITOR_I18N = {
     costNote: "Реальная стоимость может незначительно отличаться в зависимости от сложности текста.",
     costConfirm: "Подтвердить и адаптировать",
     costBack: "← Назад",
+    minRead: "мин. чтения",
+    chars: "симв.",
+    sprintLabel: "Спринт",
+    sprintGoalPlaceholder: "Цель (слов)…",
+    sprintStart: "Старт",
+    sprintStop: "Стоп",
+    sprintDone: "Спринт завершён!",
+    sprintWordsWritten: "слов написано",
+    typewriterMode: "Режим машинки",
   },
   ua: {
     selectChapter: "Оберіть розділ для редагування",
@@ -293,6 +316,15 @@ const EDITOR_I18N = {
     costNote: "Фактична вартість може незначно відрізнятися залежно від складності тексту.",
     costConfirm: "Підтвердити й адаптувати",
     costBack: "← Назад",
+    minRead: "хв. читання",
+    chars: "симв.",
+    sprintLabel: "Спринт",
+    sprintGoalPlaceholder: "Ціль (слів)…",
+    sprintStart: "Старт",
+    sprintStop: "Стоп",
+    sprintDone: "Спринт завершено!",
+    sprintWordsWritten: "слів написано",
+    typewriterMode: "Режим машинки",
   },
   de: {
     selectChapter: "Wähle ein Kapitel zur Bearbeitung",
@@ -348,6 +380,15 @@ const EDITOR_I18N = {
     costNote: "Die tatsächlichen Kosten können je nach Textkomplexität leicht abweichen.",
     costConfirm: "Bestätigen & Adaptieren",
     costBack: "← Zurück",
+    minRead: "Min. Lesezeit",
+    chars: "Zeichen",
+    sprintLabel: "Sprint",
+    sprintGoalPlaceholder: "Wortziel…",
+    sprintStart: "Start",
+    sprintStop: "Stop",
+    sprintDone: "Sprint fertig!",
+    sprintWordsWritten: "Wörter geschrieben",
+    typewriterMode: "Schreibmodus",
   },
 };
 
@@ -452,6 +493,17 @@ export function ChapterEditor({
   const editorAreaRef = useRef<HTMLDivElement>(null);
   const blockEditorApiRef = useRef<BlockEditorAPI | null>(null);
 
+  const [charCount, setCharCount] = useState(0);
+  const [showCharCount, setShowCharCount] = useState(false);
+  const [isTypewriterMode, setIsTypewriterMode] = useState(false);
+  const [sprintGoalInput, setSprintGoalInput] = useState("500");
+  const [sprintMinInput, setSprintMinInput] = useState("25");
+  const [sprintActive, setSprintActive] = useState(false);
+  const [sprintSecondsLeft, setSprintSecondsLeft] = useState(0);
+  const [sprintWordsAtStart, setSprintWordsAtStart] = useState(0);
+  const [sprintExpanded, setSprintExpanded] = useState(false);
+  const sprintTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (chapter) {
       setTitle(chapter.title);
@@ -520,8 +572,69 @@ export function ChapterEditor({
     const plainText = blocksToPlainText(blocks);
     const words = plainText.trim().split(/\s+/).filter(w => w.length > 0).length;
     setWordCount(words);
+    setCharCount(plainText.replace(/\s/g, "").length);
     onContextChange(plainText);
   }, [blocks, onContextChange]);
+
+  useEffect(() => {
+    return () => { if (sprintTimerRef.current) clearInterval(sprintTimerRef.current); };
+  }, []);
+
+  const startSprint = useCallback(() => {
+    const mins = parseInt(sprintMinInput, 10) || 25;
+    setSprintSecondsLeft(mins * 60);
+    setSprintWordsAtStart(wordCount);
+    setSprintActive(true);
+    setSprintExpanded(false);
+    if (sprintTimerRef.current) clearInterval(sprintTimerRef.current);
+    sprintTimerRef.current = setInterval(() => {
+      setSprintSecondsLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(sprintTimerRef.current!);
+          sprintTimerRef.current = null;
+          setSprintActive(false);
+          toast({ title: s.sprintDone });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [sprintMinInput, wordCount, s.sprintDone, toast]);
+
+  const stopSprint = useCallback(() => {
+    if (sprintTimerRef.current) { clearInterval(sprintTimerRef.current); sprintTimerRef.current = null; }
+    setSprintActive(false);
+  }, []);
+
+  useEffect(() => {
+    if (!sprintExpanded) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-sprint-popover]")) setSprintExpanded(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [sprintExpanded]);
+
+  useEffect(() => {
+    if (!isTypewriterMode) return;
+    const handleInput = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect || rect.top === 0) return;
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const targetY = containerRect.top + containerRect.height / 2;
+      const delta = rect.top - targetY;
+      container.scrollBy({ top: delta, behavior: "smooth" });
+    };
+    const area = editorAreaRef.current;
+    area?.addEventListener("keyup", handleInput);
+    return () => area?.removeEventListener("keyup", handleInput);
+  }, [isTypewriterMode]);
 
   const saveMutation = useMutation({
     mutationFn: (data: any) => apiRequest("PATCH", `/api/chapters/${chapter!.id}`, data),
@@ -829,10 +942,107 @@ export function ChapterEditor({
           />
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground/70 border-r border-border pr-3 mr-1">
-            <AlignLeft className="h-3.5 w-3.5" />
-            <span data-testid="word-count">{wordCount} {s.words}</span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Stats: words + reading time */}
+          <button
+            onClick={() => setShowCharCount(v => !v)}
+            className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors border-r border-border pr-3 mr-0.5"
+            title={showCharCount ? "Show word count" : "Show character count"}
+          >
+            <AlignLeft className="h-3.5 w-3.5 flex-shrink-0" />
+            <span data-testid="word-count">
+              {showCharCount
+                ? `${charCount.toLocaleString()} ${s.chars}`
+                : `${wordCount} ${s.words}`}
+            </span>
+            {!showCharCount && wordCount > 0 && (
+              <span className="text-[10px] text-muted-foreground/40 hidden sm:inline">
+                · {Math.max(1, Math.ceil(wordCount / 225))} {s.minRead}
+              </span>
+            )}
+          </button>
+
+          {/* Typewriter mode */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn("h-8 w-8 p-0 transition-colors", isTypewriterMode ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+            onClick={() => setIsTypewriterMode(v => !v)}
+            title={s.typewriterMode}
+          >
+            <Keyboard className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Sprint */}
+          <div className="relative">
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn("h-8 px-2 gap-1 text-xs transition-colors", sprintActive ? "text-orange-500" : "text-muted-foreground hover:text-foreground")}
+              onClick={() => { if (sprintActive) return; setSprintExpanded(v => !v); }}
+              title={s.sprintLabel}
+            >
+              {sprintActive ? (
+                <>
+                  <Clock className="h-3.5 w-3.5 animate-pulse" />
+                  <span className="font-mono text-[11px]">
+                    {String(Math.floor(sprintSecondsLeft / 60)).padStart(2, "0")}:{String(sprintSecondsLeft % 60).padStart(2, "0")}
+                  </span>
+                  <span className="text-[10px] hidden sm:inline">+{wordCount - sprintWordsAtStart}</span>
+                </>
+              ) : (
+                <Timer className="h-3.5 w-3.5" />
+              )}
+            </Button>
+            {sprintActive && (
+              <button
+                onClick={stopSprint}
+                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-destructive/80 flex items-center justify-center text-white hover:bg-destructive transition-colors"
+                title={s.sprintStop}
+              >
+                <X className="h-2 w-2" />
+              </button>
+            )}
+            {sprintExpanded && !sprintActive && (
+              <div
+                data-sprint-popover
+                className="absolute right-0 top-full mt-1 z-50 w-52 rounded-xl border border-border bg-background shadow-xl p-3 space-y-2"
+              >
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{s.sprintLabel}</p>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <p className="text-[10px] text-muted-foreground mb-1">{s.sprintGoalPlaceholder}</p>
+                    <input
+                      type="number"
+                      min={50}
+                      max={10000}
+                      step={50}
+                      value={sprintGoalInput}
+                      onChange={e => setSprintGoalInput(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none focus:border-primary/40"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] text-muted-foreground mb-1">Min</p>
+                    <select
+                      value={sprintMinInput}
+                      onChange={e => setSprintMinInput(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none focus:border-primary/40"
+                    >
+                      {[5,10,15,20,25,30,45,60].map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={startSprint}
+                  className="w-full py-1.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5 transition-colors"
+                  style={{ background: "#F96D1C" }}
+                >
+                  <Zap className="h-3 w-3" />
+                  {s.sprintStart}
+                </button>
+              </div>
+            )}
           </div>
 
           <Button 
@@ -847,7 +1057,7 @@ export function ChapterEditor({
           </Button>
 
           {isDirty && (
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal hidden sm:flex">
               {s.modified}
             </Badge>
           )}
@@ -862,16 +1072,15 @@ export function ChapterEditor({
             <Save className="h-3.5 w-3.5" />
             {saveMutation.isPending ? s.saving : s.save}
           </Button>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => { setShowAdaptModal(true); setAdaptDone(null); setAdaptStep("select-lang"); setAdaptLang(""); setSelectedExistingBookId(null); }}
               title={s.adaptLang}
             >
               <Globe className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{s.adaptLang}</span>
             </Button>
             {adaptations.length > 0 && (
               <div className="flex items-center gap-0.5">
@@ -986,8 +1195,34 @@ export function ChapterEditor({
         </div>
 
         {(isDeepWritingMode || isReadingMode) && !isReadingMode && (
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/20 backdrop-blur-md border border-white/10 text-xs text-muted-foreground">
-            {wordCount} {s.words}
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/20 backdrop-blur-md border border-white/10 text-xs text-muted-foreground flex items-center gap-3">
+            <span>{wordCount} {s.words}</span>
+            {sprintActive && (
+              <>
+                <span className="opacity-30">|</span>
+                <span className="flex items-center gap-1.5 text-orange-400">
+                  <Clock className="h-3 w-3 animate-pulse" />
+                  <span className="font-mono">
+                    {String(Math.floor(sprintSecondsLeft / 60)).padStart(2, "0")}:{String(sprintSecondsLeft % 60).padStart(2, "0")}
+                  </span>
+                  {parseInt(sprintGoalInput, 10) > 0 && (
+                    <span className="text-[10px]">
+                      +{wordCount - sprintWordsAtStart}/{sprintGoalInput}
+                    </span>
+                  )}
+                </span>
+                <div
+                  className="h-1 rounded-full overflow-hidden"
+                  style={{ width: 48, background: "rgba(255,255,255,0.1)" }}
+                >
+                  <div
+                    className="h-full rounded-full bg-orange-400 transition-all"
+                    style={{ width: `${Math.min(100, ((wordCount - sprintWordsAtStart) / (parseInt(sprintGoalInput, 10) || 500)) * 100)}%` }}
+                  />
+                </div>
+              </>
+            )}
+            {isTypewriterMode && <span className="opacity-30">⌨</span>}
           </div>
         )}
       </div>
