@@ -29,6 +29,7 @@ import type { Draft } from "@shared/schema";
 import { NotesTab } from "@/components/notes-tab";
 import { SourcesTab } from "@/components/sources-tab";
 import { RoleModelsTab } from "@/components/role-models-tab";
+import { ResearchDashboard } from "@/components/research-dashboard";
 import { format } from "date-fns";
 import { ru, uk, de as deDe, enUS } from "date-fns/locale";
 
@@ -2230,7 +2231,7 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
   const { toast } = useToast();
   const { lang } = useLang();
   const rp = RESEARCH_I18N[lang];
-  const [activeTab, setActiveTab] = useState<"notes" | "library" | "ai" | "hypotheses" | "drafts" | "models">("notes");
+  const [activeTab, setActiveTab] = useState<"notes" | "library" | "dashboard" | "hypotheses" | "drafts" | "models">("dashboard");
   const [showDialog, setShowDialog] = useState(false);
   const [editSource, setEditSource] = useState<Source | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2238,6 +2239,26 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
   const { data: sources = [], isLoading } = useQuery<Source[]>({
     queryKey: ["/api/books", bookId, "sources"],
     queryFn: () => apiRequest("GET", `/api/books/${bookId}/sources`),
+  });
+
+  const { data: notesData = [] } = useQuery<any[]>({
+    queryKey: ["/api/books", bookId, "notes"],
+    queryFn: () => apiRequest("GET", `/api/books/${bookId}/notes`),
+  });
+
+  const { data: draftsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/books", bookId, "drafts"],
+    queryFn: () => apiRequest("GET", `/api/books/${bookId}/drafts`),
+  });
+
+  const { data: hypothesesData = [] } = useQuery<any[]>({
+    queryKey: ["/api/books", bookId, "hypotheses"],
+    queryFn: () => apiRequest("GET", `/api/books/${bookId}/hypotheses`),
+  });
+
+  const { data: modelsData = [] } = useQuery<any[]>({
+    queryKey: ["/api/books", bookId, "role-models"],
+    queryFn: () => apiRequest("GET", `/api/books/${bookId}/role-models`),
   });
 
   const addSourceMutation = useMutation({
@@ -2279,61 +2300,46 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-l border-border">
-      {/* Tabs Header — row 1: Notes + Drafts; row 2: AI + Hypotheses + Library */}
-      <div className="px-4 mt-4 space-y-1 flex-shrink-0">
-        <div className="flex p-1 bg-muted/30 rounded-xl border border-border/50">
-          <button
-            onClick={() => setActiveTab("notes")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "notes" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <Lightbulb className="h-3 w-3" />
-            Notes
-          </button>
-          <button
-            onClick={() => setActiveTab("drafts")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "drafts" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <FileEdit className="h-3 w-3" />
-            Drafts
-          </button>
-          <button
-            onClick={() => setActiveTab("ai")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "ai" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <Search className="h-3 w-3" />
-            {rp.tabAiSearch}
-          </button>
-          <button
-            onClick={() => setActiveTab("hypotheses")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "hypotheses" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <FlaskConical className="h-3 w-3" />
-            {rp.tabHypotheses}
-          </button>
-          <button
-            onClick={() => setActiveTab("library")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "library" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <BookOpen className="h-3 w-3" />
-            {rp.tabLibrary}
-          </button>
-          <button
-            onClick={() => setActiveTab("models")}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "models" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <Brain className="h-3 w-3" />
-            Models
-          </button>
+      {/* Tab bar */}
+      <div className="px-4 mt-4 flex-shrink-0">
+        <div className="flex p-1 bg-muted/30 rounded-xl border border-border/50 gap-0.5">
+          {([
+            { id: "dashboard", icon: Compass, label: "Home" },
+            { id: "notes",     icon: Lightbulb, label: "Notes" },
+            { id: "library",   icon: BookOpen, label: "Library" },
+            { id: "hypotheses",icon: FlaskConical, label: "Ideas" },
+            { id: "drafts",    icon: FileEdit, label: "Drafts" },
+            { id: "models",    icon: Brain, label: "Models" },
+          ] as const).map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-0.5 py-1.5 text-[9.5px] font-medium rounded-lg transition-all min-w-0 ${activeTab === tab.id ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <tab.icon className="h-2.5 w-2.5 flex-shrink-0" />
+              <span className="truncate">{tab.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="flex-1 overflow-hidden mt-2">
-        {activeTab === "notes" && (
-          <NotesTab bookId={bookId} book={book} />
+        {activeTab === "dashboard" && (
+          <ResearchDashboard
+            bookId={bookId}
+            book={book}
+            sources={sources}
+            notesCount={notesData.length}
+            draftsCount={draftsData.length}
+            hypothesesCount={hypothesesData.length}
+            modelsCount={modelsData.length}
+            modelsAnalyzedCount={modelsData.filter((m: any) => m.analysisStatus === "analyzed").length}
+            onNavigate={tab => setActiveTab(tab)}
+          />
         )}
 
-        {activeTab === "ai" && (
-          <AIDiscoveryPanel bookId={bookId} book={book} sources={sources} />
+        {activeTab === "notes" && (
+          <NotesTab bookId={bookId} book={book} />
         )}
 
         {activeTab === "hypotheses" && (
