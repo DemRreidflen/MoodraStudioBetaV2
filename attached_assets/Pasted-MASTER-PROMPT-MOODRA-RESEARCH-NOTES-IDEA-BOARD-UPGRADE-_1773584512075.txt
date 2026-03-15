@@ -1,0 +1,1339 @@
+MASTER PROMPT — MOODRA RESEARCH / NOTES / IDEA BOARD UPGRADE
+
+Task:
+Upgrade the existing Moodra platform by deeply improving and expanding only the following system categories:
+
+Research
+
+Notes
+
+Idea Board
+
+Do not redesign or modify the existing:
+
+text editor / chapter writing mode
+
+formatting / layout mode
+
+The goal is to transform these three areas into a tightly connected cognitive workspace for authors, where research, notes, visual thinking, and AI-assisted reasoning work together as one intelligent ecosystem.
+
+The upgrade must preserve the current platform identity, visual language, and overall UI style, while making these modules dramatically more useful, structured, and “writer-intelligent”.
+
+The platform should feel like it understands how authors think, collect fragments, connect ideas, and gradually turn chaos into chapters.
+
+1. CORE PRODUCT VISION
+
+Moodra should evolve beyond being a writing tool and become a thinking environment for authors.
+
+The upgraded system should help users:
+
+capture ideas quickly
+
+organize thoughts meaningfully
+
+connect notes and concepts
+
+explore sources and research materials
+
+visually map their thinking
+
+transform notes into drafts and chapter seeds
+
+receive intelligent contextual support from AI agents
+
+The upgraded experience should feel like:
+
+Apple Notes in speed and simplicity
+
+Obsidian in linking and knowledge architecture
+
+FigJam in visual ideation and board freedom
+
+a custom writer-oriented research OS in how everything connects
+
+The system must not feel like separate disconnected tools.
+It must feel like one coherent creative ecosystem.
+
+2. STRICT SCOPE OF THIS IMPLEMENTATION
+
+This implementation must directly affect only:
+
+Research
+
+Notes
+
+Idea Board
+
+AI prompt and agent architecture related to these systems
+
+This implementation must not affect:
+
+chapter editor writing mode
+
+text improvement interface in the main editor
+
+formatting / layout / export logic
+
+No redesign of writing mode.
+No redesign of book layout mode.
+Only enhance the systems around thinking, collecting, connecting, and pre-writing.
+
+3. RESEARCH MUST BECOME A PLATFORM INSIDE THE PLATFORM
+
+The existing Research section should be transformed into a much more advanced and structured subsystem.
+
+It should no longer behave like simple folders with information blocks.
+It should become a multi-layer research environment where the user can:
+
+collect source materials
+
+generate structured insights
+
+save and connect notes
+
+create exploratory drafts
+
+send items to Idea Board
+
+build a knowledge network around a project or book
+
+Research should be redesigned as a system with the following internal modules:
+
+3.1 Research Modules
+
+Sources
+
+Notes
+
+Drafts
+
+Boards integration
+
+AI Reviews / Agent Reports
+
+Role Model Library
+
+These modules should remain visually integrated into the existing Moodra UI language.
+
+4. SOURCES MODULE
+
+Create or enhance a Sources layer inside Research.
+
+The user must be able to add materials such as:
+
+article
+
+website
+
+PDF
+
+uploaded document
+
+book excerpt
+
+quote
+
+custom typed source
+
+research snippet
+
+Each source should behave as a structured object, not just as plain saved content.
+
+4.1 Source object must contain:
+
+title
+
+source type
+
+author or origin if available
+
+raw content or attached file
+
+extracted summary
+
+key concepts
+
+key quotes
+
+tags
+
+linked notes
+
+linked drafts
+
+linked board objects
+
+related project
+
+date added
+
+4.2 Source actions
+
+The user should be able to:
+
+save source
+
+open source
+
+analyze source
+
+extract quotes
+
+extract concepts
+
+turn source insight into note
+
+add source to board
+
+connect source to project or chapter conceptually
+
+generate agent review
+
+4.3 Source processing
+
+When a source is uploaded or inserted, the system should support optional AI-assisted analysis such as:
+
+key ideas extraction
+
+themes detection
+
+argument mapping
+
+writing style observations
+
+conceptual summary
+
+possible relevance to existing project
+
+This analysis must be saved in structured form, not as a random chat reply.
+
+5. NOTES SYSTEM 2.0
+
+The Notes section must become one of the most powerful parts of the platform.
+
+It should combine:
+
+speed of Apple Notes
+
+structural intelligence of Obsidian
+
+project context awareness of a writing tool
+
+Notes must stop being generic note pages and become atomic units of thought.
+
+Each note should be usable as:
+
+idea
+
+insight
+
+question
+
+quote
+
+concept
+
+observation
+
+scene seed
+
+argument seed
+
+character thought
+
+worldbuilding fragment
+
+research note
+
+personal reflection
+
+future chapter seed
+
+5.1 Two note levels
+
+The system must support two levels of notes:
+
+Quick Notes
+
+Fast, low-friction notes for immediate capture.
+
+Use cases:
+
+sudden idea
+
+phrase
+
+title concept
+
+random thought
+
+insight from walk
+
+momentary reflection
+
+These should be extremely fast to create.
+
+Structured Notes
+
+Richer notes with metadata, relationships, and project-level meaning.
+
+These should support:
+
+note type
+
+status
+
+tags
+
+links
+
+backlinks
+
+related sources
+
+related drafts
+
+related board items
+
+related chapters conceptually
+
+project assignment
+
+collection assignment
+
+5.2 Note metadata
+
+Each note must support structured metadata:
+
+id
+
+title
+
+content
+
+note type
+
+status
+
+project
+
+collection
+
+tags
+
+semantic tags
+
+linked notes
+
+backlinks
+
+linked sources
+
+linked drafts
+
+linked board items
+
+linked themes
+
+importance
+
+created from
+
+last edited
+
+usage state
+
+Possible note statuses
+
+inbox
+
+active
+
+developed
+
+used
+
+archived
+
+Possible note types
+
+quick thought
+
+concept
+
+question
+
+insight
+
+quote
+
+observation
+
+scene seed
+
+argument seed
+
+character note
+
+research note
+
+reflection
+
+5.3 Inbox system
+
+Add a dedicated Inbox flow for notes.
+
+All fast captured notes should land in Inbox by default.
+
+From Inbox, the user should be able to:
+
+keep as is
+
+assign project
+
+convert to structured note
+
+tag
+
+connect to another note
+
+send to draft
+
+send to board
+
+archive
+
+delete
+
+This is important for reducing creative friction and avoiding chaos.
+
+5.4 Collections instead of simple folders
+
+Notes should support Collections in addition to or instead of rigid folder logic.
+
+Collections are flexible thematic containers.
+
+Examples:
+
+Core Philosophy
+
+Characters
+
+Metaphors
+
+Conflicts
+
+Research Ideas
+
+Book Fragments
+
+Future Project
+
+Unused Insights
+
+A note can belong to more than one collection.
+
+Collections should feel more flexible than folders and more useful for writers.
+
+6. OBSIDIAN-LIKE FUNCTIONALITY INSIDE NOTES
+
+Implement adapted Obsidian-inspired features inside Moodra Notes.
+
+This should not be a clone of Obsidian, but a writer-centered adaptation.
+
+6.1 Bidirectional links
+
+If note A links to note B, note B must automatically show that it is referenced.
+
+This should work both through explicit note linking UI and optionally through inline syntax-like reference support.
+
+6.2 Backlinks
+
+Each note should have a section:
+
+linked from
+
+used in
+
+referenced by
+
+This should show:
+
+other notes
+
+drafts
+
+sources
+
+board objects
+
+project maps
+
+6.3 Related notes
+
+The system should show related notes based on:
+
+explicit links
+
+shared tags
+
+shared semantic tags
+
+similar concepts
+
+AI-detected semantic similarity
+
+6.4 Local graph
+
+Each note should have an optional local graph view showing:
+
+connected notes
+
+related sources
+
+connected drafts
+
+linked board objects
+
+associated project nodes
+
+6.5 Global graph
+
+Create a graph view for the Notes ecosystem showing:
+
+note to note
+
+note to source
+
+note to draft
+
+note to board item
+
+note to theme
+
+note to project
+
+This graph must be useful, not decorative.
+
+It should help detect:
+
+central ideas
+
+isolated notes
+
+underdeveloped clusters
+
+overly dense themes
+
+6.6 Orphan note detection
+
+The system should identify notes with no connections and surface them as:
+
+orphan notes
+
+unused ideas
+
+disconnected fragments
+
+6.7 Embedded note blocks
+
+Allow one note to embed another note as a preview block.
+
+Useful for:
+
+theme maps
+
+concept hierarchies
+
+note compilations
+
+master notes
+
+6.8 MOC style notes
+
+Allow creation of special “Map of Content” notes.
+
+These are note-based topic maps that organize:
+
+core theme
+
+related notes
+
+related drafts
+
+related sources
+
+linked concepts
+
+key open questions
+
+This is extremely valuable for book architecture and thematic writing.
+
+7. NOTES UX PRINCIPLES
+
+The Notes interface must remain elegant, fast, and low-friction.
+
+It should feel inspired by Apple Notes in cleanliness, but more powerful.
+
+Notes UI should include:
+
+left sidebar for note lists, collections, filters, recent, inbox
+
+central note content area
+
+right contextual panel for metadata, links, backlinks, related items, agent actions
+
+Notes system should support:
+
+fast creation
+
+pinning
+
+favorites
+
+recent notes
+
+filtering by status / type / collection / tag
+
+sorting by last edited / importance / usage / creation date
+
+The system must be optimized for long-term project thinking.
+
+8. DRAFTS MODULE INSIDE RESEARCH
+
+Add or deeply enhance a Drafts module inside Research.
+
+Drafts must be clearly distinct from Notes.
+
+Notes are:
+
+atomic thought units
+
+conceptual fragments
+
+semantic objects
+
+Drafts are:
+
+raw text fragments
+
+unfinished written material
+
+pre-chapter text zones
+
+exploratory writing
+
+Drafts should be the intermediate layer between note-thinking and chapter-writing.
+
+8.1 Draft types
+
+Support draft types such as:
+
+paragraph draft
+
+scene draft
+
+argument draft
+
+opening draft
+
+exploratory fragment
+
+alternate version
+
+deleted fragment
+
+unused fragment
+
+voice test
+
+experiment
+
+8.2 Draft actions
+
+The user should be able to:
+
+create draft manually
+
+generate draft from note
+
+generate draft from multiple notes
+
+connect draft to notes
+
+connect draft to sources
+
+send draft to Idea Board
+
+convert draft into chapter seed
+
+compare drafts
+
+archive draft
+
+keep multiple versions
+
+8.3 Draft UX
+
+Drafts should feel lighter and freer than the main chapter editor.
+
+They are for experimentation and pre-structure, not final chapter polishing.
+
+9. IDEA BOARD UPGRADE
+
+The existing FigJam-like Idea Board should be strengthened significantly while keeping its current identity.
+
+It should become a more powerful visual thinking layer connected to Research and Notes.
+
+The board should not be a disconnected whiteboard.
+It should become a visual layer of the whole cognitive system.
+
+9.1 New board object types
+
+Add support for:
+
+sticky notes
+
+note cards
+
+source cards
+
+draft cards
+
+chapter seed cards
+
+quote cards
+
+concept cards
+
+shapes
+
+arrows
+
+connectors
+
+sections
+
+clusters
+
+free text
+
+image blocks if already supported
+
+real visual note papers / paper-like cards
+
+The sticky note / visual note objects should feel closer to FigJam and real ideation boards.
+
+9.2 Shapes
+
+Add geometric figure creation:
+
+rectangle
+
+circle
+
+diamond
+
+line
+
+arrow
+
+frame / area block
+
+These should help organize systems, flows, plot structures, or idea maps.
+
+9.3 Board behavior
+
+The user should be able to:
+
+drag objects freely
+
+group objects
+
+align objects
+
+connect objects
+
+label connections
+
+duplicate objects
+
+collapse groups
+
+zoom and pan smoothly
+
+create sections / working zones
+
+9.4 Semantic board objects
+
+When a note, source, or draft is added to the board, it should remain a real linked object.
+
+That means:
+
+opening the card should open the original object
+
+changes to source objects can reflect in the board representation
+
+the board item should know what it is linked to
+
+This is crucial.
+
+The board must not just display copied text.
+It must display live knowledge objects.
+
+10. RESEARCH-TO-BOARD AND NOTE-TO-BOARD PIPELINE
+
+The ecosystem must support frictionless transformation:
+
+source → note
+
+source → board
+
+note → board
+
+note → draft
+
+draft → board
+
+multiple notes → cluster
+
+board cluster → draft seed
+
+The user should feel that everything can evolve into something else.
+
+This is one of the strongest product opportunities.
+
+11. CROSS-SYSTEM CONNECTIONS
+
+Research, Notes, Drafts, and Idea Board must behave like interconnected layers.
+
+Every object should be linkable.
+
+Supported connections should include:
+
+note ↔ note
+
+source ↔ note
+
+source ↔ draft
+
+draft ↔ note
+
+draft ↔ board item
+
+board item ↔ source
+
+board item ↔ note
+
+board item ↔ draft
+
+MOC note ↔ all relevant objects
+
+The user must always be able to see where an object is used.
+
+12. AGENT ECOSYSTEM UNDER THE HOOD
+
+The upgraded system must be strongly supported by a role-based AI agent architecture.
+
+This must not behave like a generic assistant.
+
+The AI must function as a silent cognitive infrastructure that strengthens the three target modules:
+
+Research
+
+Notes
+
+Idea Board
+
+12.1 AI system principles
+
+AI must:
+
+be contextual
+
+be subtle
+
+be deeply integrated
+
+not interrupt the user unnecessarily
+
+support thinking rather than replace it
+
+The system should feel like the platform understands what the author is building.
+
+12.2 Required agent roles
+Linker Agent
+
+Finds meaningful connections between notes, sources, drafts, and board objects.
+
+Functions:
+
+suggest links
+
+suggest backlinks
+
+detect related notes
+
+detect hidden conceptual connections
+
+Distiller Agent
+
+Condenses complexity into essence.
+
+Functions:
+
+summarize note into thesis
+
+extract key ideas from source
+
+reduce long thought into clear insight
+
+identify conceptual center
+
+Expansion Agent
+
+Develops ideas outward.
+
+Functions:
+
+expand a note into argument seed
+
+expand a quote into reflection
+
+expand a concept into draft starter
+
+expand board cluster into thematic outline
+
+Structuring Agent
+
+Helps organize the system.
+
+Functions:
+
+recommend tags
+
+recommend collections
+
+suggest note type
+
+suggest where an item belongs
+
+suggest cluster logic
+
+Tension Agent
+
+Finds contradictions, pressure points, and unresolved tensions.
+
+Functions:
+
+detect conceptual conflicts
+
+show opposing ideas
+
+identify internal contradictions
+
+expose underdeveloped tensions
+
+Relevance Agent
+
+Determines what matters most.
+
+Functions:
+
+detect core notes
+
+identify noisy items
+
+show unused but important insights
+
+prioritize significant concepts
+
+Transformation Agent
+
+Moves objects from one creative state to another.
+
+Functions:
+
+note → draft
+
+note → board item
+
+source insight → note
+
+note cluster → draft seed
+
+note map → concept structure
+
+Mapping Agent
+
+Builds maps of the system.
+
+Functions:
+
+create local map
+
+create concept cluster
+
+create note constellation
+
+create theme map
+
+create MOC note skeleton
+
+13. PROMPT ECOSYSTEM / META-PROMPT ARCHITECTURE
+
+The AI system must not rely on one flat prompt.
+
+Implement a layered meta-prompt architecture.
+
+Each agent should receive a structured prompt assembled dynamically from context.
+
+13.1 Prompt input context
+
+Possible prompt context components:
+
+current object type
+
+current object content
+
+note type
+
+note status
+
+project metadata
+
+related notes
+
+backlinks
+
+related sources
+
+related drafts
+
+board context
+
+collections
+
+tags
+
+semantic tags
+
+user action intent
+
+book or project theme if available
+
+13.2 Prompt structure
+
+Each internal prompt should include:
+
+agent role
+
+system goal
+
+object context
+
+project context
+
+connected context
+
+task
+
+desired output structure
+
+tone of response
+
+transformation rules
+
+13.3 Example internal behaviors
+User action: “Connect this note”
+
+System should not only pass the text of the note.
+It should assemble:
+
+note content
+
+note type
+
+project theme
+
+current links
+
+related notes
+
+collection
+
+recent notes
+
+semantic neighbors
+
+Then Linker Agent returns:
+
+likely connections
+
+why they matter
+
+possible new structure
+
+User action: “Develop this thought”
+
+System should assemble:
+
+note content
+
+note status
+
+related ideas
+
+project context
+
+active themes
+
+Then Expansion Agent returns:
+
+3 possible expansions
+
+conceptual direction
+
+possible transformation into draft
+
+14. AI OUTPUTS MUST BE STRUCTURED OBJECTS, NOT CHAT MESSAGES
+
+Any AI-generated result in these modules should preferably become a structured system object.
+
+Examples:
+
+extracted concept becomes a note
+
+source review becomes an agent report
+
+theme map becomes a board cluster
+
+suggested structure becomes a MOC note
+
+expanded thought becomes a draft
+
+The system must reduce random ephemeral chat output.
+It should save meaningful outputs inside the platform ecosystem.
+
+15. AGENT REPORTS INSIDE RESEARCH
+
+Add a dedicated object type inside Research:
+
+Agent Review
+
+This is a saved AI analysis report.
+
+Possible reports:
+
+source analysis
+
+conceptual map
+
+author style analysis
+
+note cluster synthesis
+
+contradiction report
+
+theme extraction
+
+idea evolution review
+
+Each report should include:
+
+title
+
+report type
+
+agent used
+
+source object(s)
+
+creation date
+
+structured output
+
+links to created notes / drafts / board elements
+
+These reports should be stored and reusable.
+
+16. ROLE MODEL LIBRARY INSIDE RESEARCH
+
+Add a special advanced section in Research:
+
+Role Model Library
+
+Purpose:
+Allow users to upload articles, excerpts, books, or author materials and generate deep structural analyses of style, thinking method, tone, narrative rhythm, argument logic, and conceptual behavior.
+
+This system should reconstruct the “creative model” of an author or source.
+
+It should not just summarize the text.
+It should analyze:
+
+how the author thinks
+
+how the author structures ideas
+
+how the author argues
+
+how the author creates rhythm
+
+how the author builds scenes or conceptual progression
+
+how the author sounds
+
+The result must be a structured Role Model object stored in Research.
+
+16.1 Role Model object should contain:
+
+source material reference
+
+author or model name
+
+conceptual tendencies
+
+style patterns
+
+structure patterns
+
+rhythm observations
+
+vocabulary tendencies
+
+argument behavior
+
+emotional or narrative dynamics
+
+reusable writing parameters
+
+16.2 Role Model usage
+
+These Role Models can later be referenced by AI systems across the platform to shape outputs indirectly.
+
+Even if writing mode is not changed now, the architecture should be prepared.
+
+17. PREDICTIVE PLATFORM BEHAVIOR
+
+The system should proactively but gently help the user before they explicitly ask.
+
+This is one of the most important product principles.
+
+Examples of predictive support:
+
+“This note seems related to a concept you developed yesterday.”
+
+“You have 7 orphan notes around the same theme.”
+
+“These 4 notes could become a structured draft.”
+
+“This source contains ideas connected to your existing note cluster.”
+
+“This board cluster has no linked notes yet.”
+
+“You have many quotes saved but few transformed into notes.”
+
+“This concept appears central but is underdeveloped.”
+
+These suggestions should feel intelligent and useful, never noisy.
+
+18. UX REQUIREMENTS FOR REPLIT IMPLEMENTATION
+
+Implement these improvements in Replit in a practical, modular way.
+
+The architecture should be web-app friendly and feasible inside an iterative product build.
+
+Prioritize:
+
+modular data structures
+
+reusable components
+
+scalable object model
+
+clear state management
+
+strong connection model between entities
+
+performant graph and board updates
+
+non-destructive extension of current platform
+
+Do not break current user flows.
+Enhance the platform incrementally.
+
+19. RECOMMENDED IMPLEMENTATION PHASES
+Phase 1 — Foundations
+
+Notes metadata
+
+Inbox
+
+Collections
+
+Links
+
+Backlinks
+
+Source objects
+
+Draft objects
+
+Basic board object linking
+
+Phase 2 — Intelligence layer
+
+Related notes
+
+Orphan note detection
+
+Local graph
+
+Global graph
+
+Agent prompts
+
+Linker / Distiller / Structuring agents
+
+Agent review object saving
+
+Phase 3 — Deep ecosystem
+
+MOC notes
+
+Role Model Library
+
+Predictive recommendations
+
+Mapping Agent
+
+Tension Agent
+
+advanced board semantics
+
+multi-object transformation flows
+
+20. FINAL PRODUCT INTENT
+
+After this upgrade, Moodra should feel like:
+
+a writer’s research OS, note intelligence system, and visual concept lab inside one platform.
+
+The Research, Notes, and Idea Board modules should no longer feel like secondary utilities.
+They should become central creative infrastructure.
+
+The user should feel that:
+
+every idea can be captured
+
+every idea can be connected
+
+every fragment can evolve
+
+the platform remembers context
+
+the platform helps structure thought
+
+the platform quietly thinks alongside the author
+
+The upgrade must preserve the current Moodra identity while making these systems dramatically deeper, smarter, and more indispensable.

@@ -87,7 +87,11 @@ export const notes = pgTable("notes", {
   type: text("type").default("idea"),
   tags: text("tags").default(""),
   color: text("color").default("yellow"),
-  status: text("status").default("idea"),
+  status: text("status").default("active"),
+  collection: text("collection").default(""),
+  isPinned: text("is_pinned").default("false"),
+  importance: text("importance").default("normal"),
+  linkedNoteIds: text("linked_note_ids").default(""),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
@@ -102,6 +106,10 @@ export const sources = pgTable("sources", {
   quote: text("quote").default(""),
   notes: text("notes").default(""),
   type: text("type").default("book"),
+  summary: text("summary").default(""),
+  keyConcepts: text("key_concepts").default(""),
+  keyQuotes: text("key_quotes").default(""),
+  tags: text("tags").default(""),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

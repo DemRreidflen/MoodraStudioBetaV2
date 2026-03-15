@@ -793,21 +793,19 @@ function makeBridgeScript(zoom: number): string {
     paged.preview().then(function(flow) {
       applyViewMode('single');
 
-      // Apply zoom AFTER Paged.js has finished layout — this ensures
-      // all page-break calculations happen at 100% scale so preview
-      // text order matches the export exactly.
+      // Apply zoom AFTER Paged.js has finished layout so page-break
+      // calculations happen at 100% scale. Use CSS zoom property (not
+      // transform:scale) so layout dimensions actually shrink, removing
+      // white-gap artifacts.
       var z = ${zoom};
       if (z !== 1) {
-        var pages = document.querySelector('.pagedjs_pages');
-        if (pages) {
-          pages.style.transformOrigin = 'top center';
-          pages.style.transform = 'scale(' + z + ')';
-          // Collapse extra layout space below the visually-scaled content
-          // so the iframe body doesn't have a huge white area at the bottom
-          var extraH = pages.offsetHeight * (1 - z);
-          pages.style.marginBottom = '-' + extraH + 'px';
-        }
+        document.documentElement.style.zoom = String(z);
       }
+      // Inject background override after Paged.js renders
+      // in case Paged.js stylesheet overrides our initial CSS.
+      var bgStyle = document.createElement('style');
+      bgStyle.textContent = 'html,body,.pagedjs_pages,.pagedjs_pages_wrapper{background:#cdc7bf!important}';
+      document.head.appendChild(bgStyle);
 
       var chapterPages = {};
       var allPages = document.querySelectorAll('.pagedjs_page');

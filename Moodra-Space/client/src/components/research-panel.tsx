@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useFreeMode } from "@/hooks/use-free-mode";
@@ -19,7 +19,8 @@ import {
   FlaskConical, Plus, Trash2, Edit, BookOpen, Globe, FileText,
   GraduationCap, ExternalLink, Sparkles, Search, ArrowDownToLine,
   Lightbulb, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, Info,
-  Brain, UserSearch, Upload, Loader2, Microscope
+  Brain, UserSearch, Upload, Loader2, Microscope, Hash, Tag, FileEdit,
+  Quote, Layers, Feather, Save, X, Target, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru, uk, de as deDe, enUS } from "date-fns/locale";
@@ -404,6 +405,9 @@ const SOURCE_TYPE_ICONS = [
   { value: "research",        icon: GraduationCap, color: "text-purple-500 bg-purple-500/10" },
   { value: "agent_review",    icon: Brain,        color: "text-violet-500 bg-violet-500/10" },
   { value: "author_analysis", icon: UserSearch,   color: "text-rose-500 bg-rose-500/10" },
+  { value: "pdf",             icon: Layers,       color: "text-red-500 bg-red-500/10" },
+  { value: "quote",           icon: Quote,        color: "text-amber-500 bg-amber-500/10" },
+  { value: "custom",          icon: Feather,      color: "text-teal-500 bg-teal-500/10" },
 ];
 
 function getSourceTypeConfig(typeValue: string, labels: Record<string, string>) {
@@ -416,6 +420,9 @@ const SOURCE_TYPES = [
   { value: "article",         label: "Article",          icon: FileText,     color: "text-green-500 bg-green-500/10" },
   { value: "website",         label: "Website",          icon: Globe,        color: "text-orange-500 bg-orange-500/10" },
   { value: "research",        label: "Research",         icon: GraduationCap, color: "text-purple-500 bg-purple-500/10" },
+  { value: "pdf",             label: "PDF / Document",   icon: Layers,       color: "text-red-500 bg-red-500/10" },
+  { value: "quote",           label: "Quote",            icon: Quote,        color: "text-amber-500 bg-amber-500/10" },
+  { value: "custom",          label: "Custom",           icon: Feather,      color: "text-teal-500 bg-teal-500/10" },
   { value: "agent_review",    label: "Agent Review",     icon: Brain,        color: "text-violet-500 bg-violet-500/10" },
   { value: "author_analysis", label: "Author Analysis",  icon: UserSearch,   color: "text-rose-500 bg-rose-500/10" },
 ];
@@ -496,6 +503,16 @@ function SourceCard({ source, onEdit, onDelete }: {
           {source.notes && (
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{source.notes}</p>
           )}
+          {(source as any).summary && (
+            <p className="text-xs text-muted-foreground mt-1.5 italic line-clamp-2 border-l-2 border-primary/20 pl-2">{(source as any).summary}</p>
+          )}
+          {(source as any).tags && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {String((source as any).tags).split(",").map((t: string) => t.trim()).filter(Boolean).map(tag => (
+                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/8 text-primary/70 font-medium">#{tag}</span>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {source.url && (
               <a
@@ -571,6 +588,21 @@ function SourceDialog({ open, onClose, bookId, source }: {
   const [quote, setQuote] = useState(source?.quote || "");
   const [notes, setNotes] = useState(source?.notes || "");
   const [type, setType] = useState(source?.type || "book");
+  const [tags, setTags] = useState((source as any)?.tags || "");
+  const [summary, setSummary] = useState((source as any)?.summary || "");
+
+  useEffect(() => {
+    if (open) {
+      setTitle(source?.title || "");
+      setAuthor(source?.author || "");
+      setUrl(source?.url || "");
+      setQuote(source?.quote || "");
+      setNotes(source?.notes || "");
+      setType(source?.type || "book");
+      setTags((source as any)?.tags || "");
+      setSummary((source as any)?.summary || "");
+    }
+  }, [open, source?.id]);
 
   const mutation = useMutation({
     mutationFn: (data: any) => source
@@ -585,7 +617,7 @@ function SourceDialog({ open, onClose, bookId, source }: {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-card border-card-border rounded-2xl">
+      <DialogContent className="max-w-lg bg-card border-card-border rounded-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="tracking-tight">{source ? s.dialogTitleEdit : s.dialogTitleNew}</DialogTitle>
         </DialogHeader>
@@ -608,7 +640,7 @@ function SourceDialog({ open, onClose, bookId, source }: {
                 </SelectTrigger>
                 <SelectContent>
                   {SOURCE_TYPES.map(t => (
-                    <SelectItem key={t.value} value={t.value}>{s.sourceTypes[t.value as keyof typeof s.sourceTypes]}</SelectItem>
+                    <SelectItem key={t.value} value={t.value}>{s.sourceTypes[t.value as keyof typeof s.sourceTypes] || t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -626,24 +658,24 @@ function SourceDialog({ open, onClose, bookId, source }: {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">{s.labelQuote}</Label>
-            <Textarea
-              value={quote} onChange={e => setQuote(e.target.value)}
-              rows={3} className="bg-background rounded-xl resize-none"
-              placeholder={s.phQuote}
-            />
+            <Textarea value={quote} onChange={e => setQuote(e.target.value)} rows={2} className="bg-background rounded-xl resize-none" placeholder={s.phQuote} />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">{s.labelNotes}</Label>
-            <Textarea
-              value={notes} onChange={e => setNotes(e.target.value)}
-              rows={2} className="bg-background rounded-xl resize-none"
-              placeholder={s.phNotes}
-            />
+            <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="bg-background rounded-xl resize-none" placeholder={s.phNotes} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium flex items-center gap-1"><Pencil className="h-3 w-3" /> Summary / Key ideas</Label>
+            <Textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} className="bg-background rounded-xl resize-none" placeholder="Core ideas and insights from this source…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium flex items-center gap-1"><Hash className="h-3 w-3" /> Tags</Label>
+            <Input value={tags} onChange={e => setTags(e.target.value)} placeholder="tag1, tag2, tag3…" className="bg-background rounded-xl h-10" />
           </div>
           <div className="flex gap-2.5 justify-end">
             <Button variant="outline" onClick={onClose} className="rounded-xl">{s.cancel}</Button>
             <Button
-              onClick={() => mutation.mutate({ title: title.trim(), author, url, quote, notes, type })}
+              onClick={() => mutation.mutate({ title: title.trim(), author, url, quote, notes, type, tags, summary })}
               disabled={!title.trim() || mutation.isPending}
               className="rounded-xl"
               data-testid="button-save-source"
@@ -1436,11 +1468,200 @@ function HypothesisDialog({ open, onClose, hypothesis, onSave }: {
   );
 }
 
+// ─── Drafts Tab ───────────────────────────────────────────────────────────────
+const DRAFT_TYPES = [
+  { value: "paragraph", icon: Feather, label: "Paragraph" },
+  { value: "scene",     icon: BookOpen, label: "Scene" },
+  { value: "argument",  icon: Target, label: "Argument" },
+  { value: "fragment",  icon: Layers, label: "Fragment" },
+  { value: "experiment",icon: Sparkles, label: "Experiment" },
+  { value: "version",   icon: RefreshCw, label: "Alt version" },
+];
+
+function DraftsTab({ bookId }: { bookId: number }) {
+  const { toast } = useToast();
+  const [selected, setSelected] = useState<any | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [draftType, setDraftType] = useState("paragraph");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: notes = [] } = useQuery<any[]>({
+    queryKey: ["/api/books", bookId, "notes"],
+    queryFn: () => apiRequest("GET", `/api/books/${bookId}/notes`),
+  });
+
+  const drafts = notes.filter((n: any) => n.type === "fragment" || n.type === "draft" || DRAFT_TYPES.map(d => d.value).includes(n.type));
+
+  const addMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/books/${bookId}/notes`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
+      setEditing(false);
+      setDraftTitle(""); setDraftContent(""); setDraftType("paragraph");
+      toast({ title: "Draft saved" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/notes/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
+      setSelected(null); setEditing(false);
+      toast({ title: "Draft updated" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/notes/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
+      setSelected(null);
+      toast({ title: "Draft deleted" });
+    },
+  });
+
+  const handleOpen = (d: any) => {
+    setSelected(d);
+    setDraftTitle(d.title);
+    setDraftContent(d.content || "");
+    setDraftType(d.type || "paragraph");
+    setEditing(true);
+  };
+
+  const handleSave = () => {
+    if (!draftTitle.trim()) return;
+    if (selected) {
+      updateMutation.mutate({ id: selected.id, data: { title: draftTitle.trim(), content: draftContent, type: draftType } });
+    } else {
+      addMutation.mutate({ title: draftTitle.trim(), content: draftContent, type: draftType, color: "gray", status: "active" });
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="p-3 border-b border-border flex items-center gap-2">
+          <button onClick={() => setEditing(false)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+          <input
+            value={draftTitle}
+            onChange={e => setDraftTitle(e.target.value)}
+            placeholder="Draft title…"
+            className="flex-1 bg-transparent outline-none text-sm font-semibold placeholder:font-normal placeholder:text-muted-foreground"
+          />
+          <button
+            onClick={handleSave}
+            disabled={!draftTitle.trim() || addMutation.isPending || updateMutation.isPending}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors disabled:opacity-50"
+            style={{ background: "#F96D1C" }}
+          >
+            <Save className="h-3 w-3" />
+            Save
+          </button>
+        </div>
+        <div className="px-3 py-2 flex gap-1.5 flex-wrap border-b border-border/50">
+          {DRAFT_TYPES.map(dt => (
+            <button
+              key={dt.value}
+              onClick={() => setDraftType(dt.value)}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors"
+              style={{
+                background: draftType === dt.value ? "rgba(249,109,28,0.12)" : "hsl(var(--secondary))",
+                color: draftType === dt.value ? "#F96D1C" : "hsl(var(--muted-foreground))",
+              }}
+            >
+              <dt.icon className="h-2.5 w-2.5" />
+              {dt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 p-3">
+          <textarea
+            ref={textareaRef}
+            value={draftContent}
+            onChange={e => setDraftContent(e.target.value)}
+            placeholder="Write your draft here… This is a free, experimental space. No pressure."
+            className="w-full h-full bg-transparent outline-none text-sm leading-relaxed placeholder:text-muted-foreground/50 resize-none"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-sm flex items-center gap-1.5">
+            <FileEdit className="h-3.5 w-3.5 text-primary" />
+            Drafts
+          </h3>
+          <p className="text-xs text-muted-foreground">{drafts.length} pre-chapter fragments</p>
+        </div>
+        <button
+          onClick={() => { setSelected(null); setDraftTitle(""); setDraftContent(""); setDraftType("paragraph"); setEditing(true); }}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+          style={{ background: "rgba(249,109,28,0.1)", color: "#F96D1C", border: "1px solid rgba(249,109,28,0.2)" }}
+        >
+          <Plus className="h-3 w-3" />
+          New draft
+        </button>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-2">
+          {drafts.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-3">
+                <FileEdit className="h-6 w-6 text-muted-foreground/40" />
+              </div>
+              <h4 className="font-medium text-sm mb-1">No drafts yet</h4>
+              <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">Create raw fragments, alternate versions, and pre-chapter explorations here</p>
+            </div>
+          ) : (
+            drafts.map((draft: any) => {
+              const dt = DRAFT_TYPES.find(d => d.value === draft.type) || DRAFT_TYPES[0];
+              return (
+                <div
+                  key={draft.id}
+                  className="group p-3.5 rounded-xl border border-border hover:border-primary/25 bg-card cursor-pointer transition-all"
+                  onClick={() => handleOpen(draft)}
+                >
+                  <div className="flex items-start gap-2 mb-1">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(249,109,28,0.1)" }}>
+                      <dt.icon className="h-3 w-3 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-sm truncate">{draft.title}</h4>
+                      <span className="text-[10px] text-muted-foreground">{dt.label}</span>
+                    </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteMutation.mutate(draft.id); }}
+                      className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  {draft.content && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 pl-8">{draft.content}</p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
 export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) {
   const { toast } = useToast();
   const { lang } = useLang();
   const rp = RESEARCH_I18N[lang];
-  const [activeTab, setActiveTab] = useState<"library" | "ai" | "hypotheses">("ai");
+  const [activeTab, setActiveTab] = useState<"library" | "ai" | "hypotheses" | "drafts">("ai");
   const [showDialog, setShowDialog] = useState(false);
   const [editSource, setEditSource] = useState<Source | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1493,36 +1714,47 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
       <div className="flex p-1 bg-muted/30 mx-4 mt-4 rounded-xl border border-border/50">
         <button
           onClick={() => setActiveTab("ai")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
             activeTab === "ai"
               ? "bg-background text-primary shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Search className="h-3.5 w-3.5" />
+          <Search className="h-3 w-3" />
           {rp.tabAiSearch}
         </button>
         <button
           onClick={() => setActiveTab("hypotheses")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
             activeTab === "hypotheses"
               ? "bg-background text-primary shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <FlaskConical className="h-3.5 w-3.5" />
+          <FlaskConical className="h-3 w-3" />
           {rp.tabHypotheses}
         </button>
         <button
           onClick={() => setActiveTab("library")}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
             activeTab === "library"
               ? "bg-background text-primary shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <BookOpen className="h-3.5 w-3.5" />
+          <BookOpen className="h-3 w-3" />
           {rp.tabLibrary}
+        </button>
+        <button
+          onClick={() => setActiveTab("drafts")}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
+            activeTab === "drafts"
+              ? "bg-background text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FileEdit className="h-3 w-3" />
+          Drafts
         </button>
       </div>
 
@@ -1533,6 +1765,10 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
 
         {activeTab === "hypotheses" && (
           <HypothesisTab bookId={bookId} book={book} sources={sources} />
+        )}
+
+        {activeTab === "drafts" && (
+          <DraftsTab bookId={bookId} />
         )}
 
         {activeTab === "library" && (

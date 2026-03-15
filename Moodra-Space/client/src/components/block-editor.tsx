@@ -802,26 +802,62 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   }, [onChange]);
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = blocks.findIndex((b) => b.id === active.id);
+    const { active, over, delta } = event;
+    if (!over) return;
+
+    const oldIndex = blocks.findIndex((b) => b.id === active.id);
+    const activeBlock = blocks[oldIndex];
+    if (!activeBlock) return;
+
+    const currentLevel = activeBlock.metadata?.indentLevel ?? 0;
+    const HORIZONTAL_THRESHOLD = 60;
+
+    // Detect horizontal drag → indent/outdent
+    if (Math.abs(delta.x) > HORIZONTAL_THRESHOLD && active.id === over.id) {
+      const newLevel = delta.x > 0
+        ? Math.min(3, currentLevel + 1)
+        : Math.max(0, currentLevel - 1);
+      if (newLevel !== currentLevel) {
+        const newBlocks = blocks.map(b =>
+          b.id === active.id
+            ? { ...b, metadata: { ...b.metadata, indentLevel: newLevel } }
+            : b
+        );
+        updateBlocks(newBlocks);
+      }
+      return;
+    }
+
+    if (active.id !== over.id) {
       const newIndex = blocks.findIndex((b) => b.id === over.id);
+      // Determine new indent level based on horizontal offset
+      const targetBlock = blocks[newIndex];
+      let newLevel = currentLevel;
+      if (delta.x > HORIZONTAL_THRESHOLD) {
+        const blockAbove = blocks[newIndex - 1] || blocks[newIndex];
+        newLevel = Math.min(3, (blockAbove?.metadata?.indentLevel ?? 0) + 1);
+      } else if (delta.x < -HORIZONTAL_THRESHOLD) {
+        newLevel = Math.max(0, currentLevel - 1);
+      }
+
       // Collect children: all consecutive blocks with strictly higher indentLevel
-      const parentLevel = blocks[oldIndex]?.metadata?.indentLevel ?? 0;
+      const parentLevel = currentLevel;
       let groupSize = 1;
       for (let i = oldIndex + 1; i < blocks.length; i++) {
         if ((blocks[i].metadata?.indentLevel ?? 0) > parentLevel) groupSize++;
         else break;
       }
-      if (groupSize === 1) {
-        updateBlocks(arrayMove(blocks, oldIndex, newIndex));
-      } else {
-        const arr = [...blocks];
-        const group = arr.splice(oldIndex, groupSize);
-        const dest = newIndex > oldIndex ? newIndex - groupSize + 1 : newIndex;
-        arr.splice(Math.max(0, dest), 0, ...group);
-        updateBlocks(arr);
-      }
+
+      const levelDelta = newLevel - currentLevel;
+      let arr = [...blocks];
+      const group = arr.splice(oldIndex, groupSize).map((b, gi) => {
+        if (gi === 0) return { ...b, metadata: { ...b.metadata, indentLevel: newLevel } };
+        const childLevel = b.metadata?.indentLevel ?? 0;
+        return { ...b, metadata: { ...b.metadata, indentLevel: Math.max(0, Math.min(3, childLevel + levelDelta)) } };
+      });
+      const dest = newIndex > oldIndex ? newIndex - groupSize + 1 : newIndex;
+      arr.splice(Math.max(0, dest), 0, ...group);
+      updateBlocks(arr);
     }
   };
 
@@ -1354,12 +1390,6 @@ function SortableBlock({
 
   const currentType = BLOCK_TYPES.find(t => t.type === block.type) || BLOCK_TYPES[0];
   const indentLevel = block.metadata?.indentLevel ?? 0;
-  const INDENT_COLORS = [
-    "transparent",
-    "rgba(249,109,28,0.45)",
-    "rgba(99,102,241,0.45)",
-    "rgba(52,211,153,0.45)",
-  ] as const;
 
   return (
     <div
@@ -1373,43 +1403,16 @@ function SortableBlock({
         "group relative flex items-start gap-2 py-1 px-2 rounded-md transition-colors",
         isDragging ? "bg-accent/50 opacity-50" : (!hideControls && "hover:bg-accent/5"),
         isFocused && "bg-accent/5",
-        hideControls && "py-0 px-0 hover:bg-transparent"
+        hideControls && "py-0 px-0 hover:bg-transparent",
+        indentLevel > 0 && "border-l-2 border-border/50 pl-3"
       )}
     >
-      {/* Indent hierarchy line */}
-      {indentLevel > 0 && (
-        <div
-          className="absolute top-0 bottom-0 pointer-events-none rounded-sm"
-          style={{
-            left: "2px",
-            width: "2px",
-            background: INDENT_COLORS[indentLevel] || INDENT_COLORS[3],
-          }}
-        />
-      )}
       {/* Left controls */}
       {!hideControls && (
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity absolute -left-14 top-2 h-6">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute -left-12 top-2 h-6">
           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded">
             <GripVertical className="w-4 h-4 text-muted-foreground" />
           </div>
-          {/* Indent / Outdent mini buttons */}
-          <button
-            title="Увеличить вложенность (Tab)"
-            onMouseDown={e => { e.preventDefault(); if (indentLevel < 3) onUpdateMetadata({ ...block.metadata, indentLevel: indentLevel + 1 }); }}
-            className="w-5 h-5 flex items-center justify-center rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30"
-            disabled={indentLevel >= 3}
-          >
-            <Indent className="w-3 h-3" />
-          </button>
-          <button
-            title="Уменьшить вложенность (Shift+Tab)"
-            onMouseDown={e => { e.preventDefault(); if (indentLevel > 0) onUpdateMetadata({ ...block.metadata, indentLevel: indentLevel - 1 }); }}
-            className="w-5 h-5 flex items-center justify-center rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30"
-            disabled={indentLevel === 0}
-          >
-            <Outdent className="w-3 h-3" />
-          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="w-6 h-6 p-0 hover:bg-accent rounded">
