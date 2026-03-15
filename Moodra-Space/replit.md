@@ -4,6 +4,16 @@
 Moodra is a next-gen AI writing environment for serious authors. The platform covers the full lifecycle of a book — from research and hypothesis-testing to character development and final writing. Clean cream/editorial design, block-based editor, interactive idea boards, and deep AI integration.
 
 ## Key Features
+- **Notes System 2.0** (full atomic notes module in Research panel):
+  - **Quick Capture bar**: single-line input → captures to Inbox instantly (Enter key), creates `isQuick: "true"` notes
+  - **Inbox view**: all captured notes with 6 one-click actions (Keep active, Develop, → Draft, → Board, Archive, Delete)
+  - **All Notes view**: searchable, filterable by type (11 types) and status; type filter chips auto-hide empty types
+  - **Collections view**: flexible thematic containers (not folders); multi-color, multi-collection membership; click collection → filters All Notes; preview chips show note titles
+  - **Note editor**: 11 type chips, 5 statuses (inbox/active/developed/used/archived), 3 importance levels, tags input, linked notes/sources/drafts multi-select, collections multi-select, Send to Board, → Draft actions
+  - **11 note types**: quick_thought, concept, question, insight, quote, observation, scene_seed, argument_seed, character_note, research_note, reflection — each with distinct color + icon
+  - **DB tables**: `notes` (extended with `collectionIds`, `isQuick`, `linkedSourceIds`, `linkedDraftIds`, `semanticTags`), `note_collections`
+  - **API routes**: GET/POST `/api/books/:id/collections`, PATCH/DELETE `/api/collections/:id`
+  - **Component**: `client/src/components/notes-tab.tsx` (standalone module)
 - **Two book modes**: Scientific (non-fiction, philosophy) and Fiction (novels, sci-fi)
 - **Notion-like block editor**: 18+ block types with drag-and-drop reordering (@dnd-kit); solid FormatToolbar (no blur); selection-only AI improve; cursor-at-merge junction
 - **List block types**: `bullet_item`, `numbered_item`, `check_item` — first-class blocks; Enter continues list, Backspace on empty exits to paragraph; numbered items auto-count consecutive runs; check_item toggles checked state via metadata.checked; all render properly in PDF (wrapped in `<ul>/<ol>`)

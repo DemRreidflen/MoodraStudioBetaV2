@@ -207,6 +207,21 @@ export class DatabaseStorage implements IStorage {
   async deleteDraft(id: number) {
     await db.delete(drafts).where(eq(drafts.id, id));
   }
+
+  async getNoteCollections(bookId: number) {
+    return db.select().from(noteCollections).where(eq(noteCollections.bookId, bookId)).orderBy(asc(noteCollections.createdAt));
+  }
+  async createNoteCollection(col: InsertNoteCollection) {
+    const [c] = await db.insert(noteCollections).values(col).returning();
+    return c;
+  }
+  async updateNoteCollection(id: number, data: Partial<InsertNoteCollection>) {
+    const [c] = await db.update(noteCollections).set(data).where(eq(noteCollections.id, id)).returning();
+    return c;
+  }
+  async deleteNoteCollection(id: number) {
+    await db.delete(noteCollections).where(eq(noteCollections.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();

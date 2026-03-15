@@ -26,6 +26,7 @@ import {
   BookMarked, Link2, Unlink2, Wand2, Check
 } from "lucide-react";
 import type { Draft } from "@shared/schema";
+import { NotesTab } from "@/components/notes-tab";
 import { format } from "date-fns";
 import { ru, uk, de as deDe, enUS } from "date-fns/locale";
 
@@ -2227,7 +2228,7 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
   const { toast } = useToast();
   const { lang } = useLang();
   const rp = RESEARCH_I18N[lang];
-  const [activeTab, setActiveTab] = useState<"library" | "ai" | "hypotheses" | "drafts">("ai");
+  const [activeTab, setActiveTab] = useState<"notes" | "library" | "ai" | "hypotheses" | "drafts">("notes");
   const [showDialog, setShowDialog] = useState(false);
   const [editSource, setEditSource] = useState<Source | undefined>();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2276,55 +2277,52 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
 
   return (
     <div className="h-full flex flex-col bg-sidebar border-l border-border">
-      {/* Tabs Header */}
-      <div className="flex p-1 bg-muted/30 mx-4 mt-4 rounded-xl border border-border/50">
-        <button
-          onClick={() => setActiveTab("ai")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
-            activeTab === "ai"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Search className="h-3 w-3" />
-          {rp.tabAiSearch}
-        </button>
-        <button
-          onClick={() => setActiveTab("hypotheses")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
-            activeTab === "hypotheses"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <FlaskConical className="h-3 w-3" />
-          {rp.tabHypotheses}
-        </button>
-        <button
-          onClick={() => setActiveTab("library")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
-            activeTab === "library"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <BookOpen className="h-3 w-3" />
-          {rp.tabLibrary}
-        </button>
-        <button
-          onClick={() => setActiveTab("drafts")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${
-            activeTab === "drafts"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <FileEdit className="h-3 w-3" />
-          Drafts
-        </button>
+      {/* Tabs Header — row 1: Notes + Drafts; row 2: AI + Hypotheses + Library */}
+      <div className="px-4 mt-4 space-y-1 flex-shrink-0">
+        <div className="flex p-1 bg-muted/30 rounded-xl border border-border/50">
+          <button
+            onClick={() => setActiveTab("notes")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "notes" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Lightbulb className="h-3 w-3" />
+            Notes
+          </button>
+          <button
+            onClick={() => setActiveTab("drafts")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "drafts" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <FileEdit className="h-3 w-3" />
+            Drafts
+          </button>
+          <button
+            onClick={() => setActiveTab("ai")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "ai" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Search className="h-3 w-3" />
+            {rp.tabAiSearch}
+          </button>
+          <button
+            onClick={() => setActiveTab("hypotheses")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "hypotheses" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <FlaskConical className="h-3 w-3" />
+            {rp.tabHypotheses}
+          </button>
+          <button
+            onClick={() => setActiveTab("library")}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-medium rounded-lg transition-all ${activeTab === "library" ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <BookOpen className="h-3 w-3" />
+            {rp.tabLibrary}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden mt-2">
+        {activeTab === "notes" && (
+          <NotesTab bookId={bookId} book={book} />
+        )}
+
         {activeTab === "ai" && (
           <AIDiscoveryPanel bookId={bookId} book={book} sources={sources} />
         )}

@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema } from "@shared/schema";
+import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema } from "@shared/schema";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
@@ -480,6 +480,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await storage.deleteDraft(Number(req.params.id));
       res.status(204).send();
     } catch (e) { res.status(500).json({ error: "Error deleting draft" }); }
+  });
+
+  // ---- Note Collections ----
+  app.get("/api/books/:bookId/collections", async (req: Request, res: Response) => {
+    try {
+      const cols = await storage.getNoteCollections(Number(req.params.bookId));
+      res.json(cols);
+    } catch (e) { res.status(500).json({ error: "Error loading collections" }); }
+  });
+
+  app.post("/api/books/:bookId/collections", async (req: Request, res: Response) => {
+    try {
+      const data = insertNoteCollectionSchema.parse({ ...req.body, bookId: Number(req.params.bookId) });
+      const col = await storage.createNoteCollection(data);
+      res.status(201).json(col);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/collections/:id", async (req: Request, res: Response) => {
+    try {
+      const col = await storage.updateNoteCollection(Number(req.params.id), req.body);
+      if (!col) return res.status(404).json({ error: "Collection not found" });
+      res.json(col);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/collections/:id", async (req: Request, res: Response) => {
+    try {
+      await storage.deleteNoteCollection(Number(req.params.id));
+      res.status(204).send();
+    } catch (e) { res.status(500).json({ error: "Error deleting collection" }); }
   });
 
   // ---- Idea Board ----
