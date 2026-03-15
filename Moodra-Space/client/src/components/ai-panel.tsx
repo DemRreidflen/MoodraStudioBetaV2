@@ -254,6 +254,10 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
   const [collabLoading, setCollabLoading] = useState(false);
   const [collabCopied, setCollabCopied] = useState(false);
   const [collabSaved, setCollabSaved] = useState(false);
+  const [authorFileLoading, setAuthorFileLoading] = useState(false);
+  const [authorSavedAsModel, setAuthorSavedAsModel] = useState(false);
+  const [authorModelSaving, setAuthorModelSaving] = useState(false);
+  const authorFileRef = useRef<HTMLInputElement | null>(null);
 
   const thinkingMsgs = FREE_THINKING_MSGS[lang as keyof typeof FREE_THINKING_MSGS] || FREE_THINKING_MSGS.en;
   const modeLabel = (m: typeof AI_MODES[0]) => lang === "ru" ? m.ru : lang === "ua" ? m.ua : lang === "de" ? m.de : m.en;
@@ -381,6 +385,7 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
     setAuthorLoading(true);
     setAuthorResult(null);
     setAuthorSaved(false);
+    setAuthorSavedAsModel(false);
     try {
       const resp = await fetch("/api/ai/author-analysis", {
         method: "POST",
@@ -401,6 +406,82 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
     } finally {
       setAuthorLoading(false);
     }
+  };
+
+  // ── EPUB text extraction ──────────────────────────────────────────────────
+  const extractEpubText = async (file: File): Promise<string> => {
+    const JSZip = (await import("jszip")).default;
+    const ab = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(ab);
+    // Gather HTML/XHTML content files, sorted by name to preserve reading order
+    const htmlFiles = Object.keys(zip.files)
+      .filter(n => /\.(xhtml|html|htm)$/i.test(n) && !zip.files[n].dir)
+      .sort();
+    if (htmlFiles.length === 0) throw new Error("No readable content found in EPUB");
+    const texts: string[] = [];
+    for (const fn of htmlFiles.slice(0, 30)) {
+      const raw = await zip.files[fn].async("string");
+      const stripped = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (stripped.length > 100) texts.push(stripped);
+    }
+    return texts.join("\n\n").slice(0, 12000);
+  };
+
+  const handleAuthorFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (authorFileRef.current) authorFileRef.current.value = "";
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: lang === "ru" ? "Файл слишком большой (макс. 10 МБ)" : "File too large (max 10 MB)", variant: "destructive" });
+      return;
+    }
+    setAuthorFileLoading(true);
+    try {
+      let text = "";
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      if (ext === "epub") {
+        text = await extractEpubText(file);
+      } else {
+        text = await file.text();
+      }
+      const name = file.name.replace(/\.[^.]+$/, "");
+      if (!authorName) setAuthorName(name);
+      setAuthorText(text.slice(0, 8000));
+      setAuthorResult(null);
+      setAuthorSavedAsModel(false);
+      toast({ title: lang === "ru" ? `Загружено: ${name}` : `Loaded: ${name}` });
+    } catch (err: any) {
+      toast({ title: lang === "ru" ? "Ошибка чтения файла" : "File read error", description: err?.message, variant: "destructive" });
+    } finally {
+      setAuthorFileLoading(false);
+    }
+  };
+
+  // ── Save result as Role Model ─────────────────────────────────────────────
+  const saveAsRoleModel = async () => {
+    if (!authorResult || authorModelSaving) return;
+    setAuthorModelSaving(true);
+    try {
+      // Extract a concise style instruction from the analysis (last 1200 chars of the analysis tend to have the practical section)
+      const styleInstruction = authorResult.slice(-1200);
+      await fetch(`/api/books/${book.id}/role-models`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: authorName ? `${authorName} — Style Model` : "Author Style Model",
+          authorName: authorName || "",
+          analysisText: authorResult,
+          styleInstruction,
+          influencePercent: 0,
+          avatarColor: "#8B5CF6",
+        }),
+      });
+      setAuthorSavedAsModel(true);
+      toast({ title: lang === "ru" ? "Сохранено как ролевая модель" : lang === "ua" ? "Збережено як рольова модель" : "Saved as Role Model" });
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
+    }
+    setAuthorModelSaving(false);
   };
 
   const runCollab = async () => {
@@ -1914,23 +1995,55 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                 {authorOpen && (
                   <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border/40">
                     <p className="text-[10px] text-muted-foreground pt-2 leading-relaxed">
-                      {lang === "ru" ? "Вставьте образец текста любимого автора — AI декодирует его стиль, ритм и психологические паттерны письма."
-                        : lang === "ua" ? "Вставте зразок тексту улюбленого автора — AI розкодує його стиль, ритм і психологічні паттерни письма."
-                        : lang === "de" ? "Fügen Sie einen Textausschnitt Ihres Lieblingsautors ein — die KI entschlüsselt Stil, Rhythmus und psychologische Schreibmuster."
-                        : "Paste a sample of your favourite author's text — AI decodes their style, rhythm and psychological writing patterns."}
+                      {lang === "ru"
+                        ? "Вставьте текст или загрузите файл TXT / EPUB — AI создаст глубокий аналитический слепок стиля автора, который можно сохранить как ролевую модель соавтора."
+                        : lang === "ua"
+                          ? "Вставте текст або завантажте файл TXT / EPUB — AI створить глибокий аналітичний зліпок стилю автора."
+                          : lang === "de"
+                            ? "Text einfügen oder TXT/EPUB-Datei hochladen — KI erstellt ein tiefes Stilprofil des Autors."
+                            : "Paste text or upload a TXT / EPUB file — AI creates a deep analytical style snapshot of the author, which you can save as a co-author role model."}
                     </p>
-                    <input
-                      type="text"
-                      placeholder={lang === "ru" ? "Имя автора (необязательно)" : lang === "ua" ? "Ім'я автора (необов'язково)" : lang === "de" ? "Autorenname (optional)" : "Author name (optional)"}
-                      value={authorName}
-                      onChange={e => setAuthorName(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-lg text-xs bg-muted/50 border border-border/50 focus:outline-none focus:border-purple-400/50 placeholder:text-muted-foreground/50"
-                    />
+
+                    {/* Author name + file upload row */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder={lang === "ru" ? "Имя автора…" : lang === "ua" ? "Ім'я автора…" : lang === "de" ? "Autorenname…" : "Author name…"}
+                        value={authorName}
+                        onChange={e => setAuthorName(e.target.value)}
+                        className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-muted/50 border border-border/50 focus:outline-none focus:border-purple-400/50 placeholder:text-muted-foreground/50"
+                      />
+                      <button
+                        onClick={() => authorFileRef.current?.click()}
+                        disabled={authorFileLoading}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors"
+                        style={{ borderColor: "rgba(168,85,247,0.30)", color: "#A855F7", background: "rgba(168,85,247,0.07)" }}
+                        title={lang === "ru" ? "Загрузить TXT или EPUB" : "Upload TXT or EPUB"}
+                      >
+                        {authorFileLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                        {lang === "ru" ? "Файл" : "File"}
+                      </button>
+                      <input
+                        ref={authorFileRef}
+                        type="file"
+                        accept=".txt,.epub"
+                        className="sr-only"
+                        onChange={handleAuthorFileUpload}
+                      />
+                    </div>
+
+                    {/* Char counter when file loaded */}
+                    {authorText && (
+                      <p className="text-[9px] text-muted-foreground/40 text-right -mt-1">
+                        {authorText.length.toLocaleString()} {lang === "ru" ? "символов" : "chars"}
+                      </p>
+                    )}
+
                     <textarea
                       rows={5}
-                      placeholder={lang === "ru" ? "Вставьте отрывок текста автора…" : lang === "ua" ? "Вставте уривок тексту автора…" : lang === "de" ? "Textausschnitt einfügen…" : "Paste an excerpt of the author's text…"}
+                      placeholder={lang === "ru" ? "Вставьте отрывок текста автора или загрузите файл выше…" : lang === "ua" ? "Вставте уривок тексту або завантажте файл…" : lang === "de" ? "Textausschnitt einfügen oder Datei hochladen…" : "Paste the author's text or upload a file above…"}
                       value={authorText}
-                      onChange={e => { setAuthorText(e.target.value); setAuthorSaved(false); }}
+                      onChange={e => { setAuthorText(e.target.value); setAuthorSaved(false); setAuthorSavedAsModel(false); }}
                       className="w-full px-2.5 py-1.5 rounded-lg text-xs bg-muted/50 border border-border/50 focus:outline-none focus:border-purple-400/50 placeholder:text-muted-foreground/50 resize-none"
                     />
                     <button
@@ -1946,15 +2059,33 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                     >
                       {authorLoading
                         ? (lang === "ru" ? "Анализирую…" : lang === "ua" ? "Аналізую…" : lang === "de" ? "Analysiere…" : "Analysing…")
-                        : (lang === "ru" ? "Декодировать авторский стиль" : lang === "ua" ? "Декодувати авторський стиль" : lang === "de" ? "Autorenstil dekodieren" : "Decode Author Style")}
+                        : (lang === "ru" ? "Декодировать авторский разум" : lang === "ua" ? "Декодувати авторський розум" : lang === "de" ? "Autorenstil dekodieren" : "Decode Author Mind")}
                     </button>
                     {authorResult && (
                       <div className="rounded-lg border border-purple-500/20 overflow-hidden">
                         <div className="flex items-center justify-between px-3 py-1.5" style={{ background: "rgba(168,85,247,0.08)" }}>
                           <span className="text-[10px] font-semibold text-purple-400">
-                            {lang === "ru" ? "Анализ автора" : lang === "ua" ? "Аналіз автора" : lang === "de" ? "Autorenanalyse" : "Author Analysis"}
+                            {lang === "ru" ? "Анализ авторского разума" : lang === "ua" ? "Аналіз авторського розуму" : lang === "de" ? "Autorengeist-Analyse" : "Author Mind Analysis"}
                           </span>
                           <div className="flex items-center gap-1">
+                            {/* Save as Role Model */}
+                            <button
+                              onClick={saveAsRoleModel}
+                              disabled={authorSavedAsModel || authorModelSaving}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                              style={{
+                                background: authorSavedAsModel ? "rgba(34,197,94,0.15)" : "rgba(168,85,247,0.12)",
+                                color: authorSavedAsModel ? "#22c55e" : "#A855F7",
+                                border: `1px solid ${authorSavedAsModel ? "rgba(34,197,94,0.3)" : "rgba(168,85,247,0.25)"}`,
+                              }}
+                              title={lang === "ru" ? "Сохранить как ролевую модель" : "Save as Role Model"}
+                            >
+                              {authorModelSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : authorSavedAsModel ? <Check className="w-3 h-3" /> : <UserSearch className="w-3 h-3" />}
+                              {authorSavedAsModel
+                                ? (lang === "ru" ? "Модель" : "Model ✓")
+                                : (lang === "ru" ? "→ Модель" : lang === "ua" ? "→ Модель" : "→ Role Model")}
+                            </button>
+                            {/* Save to Research */}
                             <button
                               onClick={() => saveToResearch(
                                 "author_analysis",
@@ -1967,10 +2098,11 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                               disabled={authorSaved}
                               className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors"
                               style={{
-                                background: authorSaved ? "rgba(34,197,94,0.15)" : "rgba(168,85,247,0.12)",
-                                color: authorSaved ? "#22c55e" : "#A855F7",
-                                border: `1px solid ${authorSaved ? "rgba(34,197,94,0.3)" : "rgba(168,85,247,0.25)"}`,
+                                background: authorSaved ? "rgba(34,197,94,0.15)" : "rgba(99,102,241,0.10)",
+                                color: authorSaved ? "#22c55e" : "#818CF8",
+                                border: `1px solid ${authorSaved ? "rgba(34,197,94,0.3)" : "rgba(99,102,241,0.25)"}`,
                               }}
+                              title={lang === "ru" ? "Сохранить в исследования" : "Save to Research"}
                             >
                               {authorSaved ? <Check className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
                             </button>
@@ -1985,6 +2117,13 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                         <div className="px-3 py-2.5 text-[11px] text-foreground/90 leading-relaxed whitespace-pre-wrap max-h-56 overflow-y-auto">
                           {authorResult}
                         </div>
+                        {authorSavedAsModel && (
+                          <div className="px-3 py-2 border-t border-border/30 text-[10px] text-purple-400/80" style={{ background: "rgba(168,85,247,0.04)" }}>
+                            {lang === "ru"
+                              ? "✓ Сохранено как ролевая модель. Настройте влияние в разделе «Настройки книги»."
+                              : "✓ Saved as Role Model. Set influence % in Book Settings → Role Models."}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

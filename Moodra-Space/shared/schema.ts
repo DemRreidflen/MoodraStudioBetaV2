@@ -168,6 +168,18 @@ export const drafts = pgTable("drafts", {
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+export const authorRoleModels = pgTable("author_role_models", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  bookId: integer("book_id").notNull().references(() => books.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  authorName: text("author_name").default(""),
+  analysisText: text("analysis_text").default(""),
+  styleInstruction: text("style_instruction").default(""),
+  influencePercent: integer("influence_percent").default(0),
+  avatarColor: text("avatar_color").default("#8B5CF6"),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 export const insertBookSchema = createInsertSchema(books).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertChapterSchema = createInsertSchema(chapters).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCharacterSchema = createInsertSchema(characters).omit({ id: true, createdAt: true });
@@ -176,6 +188,7 @@ export const insertSourceSchema = createInsertSchema(sources).omit({ id: true, c
 export const insertHypothesisSchema = createInsertSchema(hypotheses).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDraftSchema = createInsertSchema(drafts).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNoteCollectionSchema = createInsertSchema(noteCollections).omit({ id: true, createdAt: true });
+export const insertAuthorRoleModelSchema = createInsertSchema(authorRoleModels).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type Book = typeof books.$inferSelect;
@@ -195,3 +208,5 @@ export type Draft = typeof drafts.$inferSelect;
 export type InsertDraft = z.infer<typeof insertDraftSchema>;
 export type NoteCollection = typeof noteCollections.$inferSelect;
 export type InsertNoteCollection = z.infer<typeof insertNoteCollectionSchema>;
+export type AuthorRoleModel = typeof authorRoleModels.$inferSelect;
+export type InsertAuthorRoleModel = z.infer<typeof insertAuthorRoleModelSchema>;

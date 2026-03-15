@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Book } from "@shared/schema";
+import type { Book, AuthorRoleModel } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
-import { Settings, Save, Trash2, FlaskConical, Feather, Check, ImagePlus, X } from "lucide-react";
+import { Settings, Save, Trash2, FlaskConical, Feather, Check, ImagePlus, X, UserSearch, Sliders, Loader2, Brain } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -241,6 +241,21 @@ export function BookSettings({ book }: { book: Book }) {
     },
   });
 
+  // ── Role Models ───────────────────────────────────────────────────────────
+  const { data: roleModels = [] } = useQuery<AuthorRoleModel[]>({
+    queryKey: ["/api/books", book.id, "role-models"],
+    queryFn: () => apiRequest("GET", `/api/books/${book.id}/role-models`),
+  });
+  const updateRoleModelMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/role-models/${id}`, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/books", book.id, "role-models"] }),
+  });
+  const deleteRoleModelMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/role-models/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/books", book.id, "role-models"] }),
+  });
+  const [pendingInfluence, setPendingInfluence] = useState<Record<number, number>>({});
+
   const handleSave = () => {
     updateMutation.mutate({ title: title.trim(), description, mode, genre, language, coverColor });
   };
@@ -453,6 +468,103 @@ export function BookSettings({ book }: { book: Book }) {
                     />
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Role Models / Co-Authors ─────────────────────────── */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(168,85,247,0.15)" }}>
+                <Brain className="h-3.5 w-3.5" style={{ color: "#A855F7" }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">
+                  {lang === "ru" ? "Ролевые модели авторов" : lang === "ua" ? "Рольові моделі авторів" : lang === "de" ? "Autoren-Rollenmodelle" : "Author Role Models"}
+                </h3>
+                <p className="text-[10px] text-muted-foreground/60 leading-tight">
+                  {lang === "ru"
+                    ? "Управляйте % влияния каждого автора-соавтора на стиль работы ИИ"
+                    : lang === "ua"
+                      ? "Керуйте % впливу кожного автора-співавтора на стиль роботи ІІ"
+                      : lang === "de"
+                        ? "Steuern Sie den Einfluss jedes Autors auf den KI-Schreibstil"
+                        : "Control how much each co-author style model influences AI writing"}
+                </p>
+              </div>
+            </div>
+
+            {roleModels.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border/60 p-4 text-center">
+                <UserSearch className="h-5 w-5 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground/50">
+                  {lang === "ru"
+                    ? "Нет ролевых моделей. Добавьте анализ автора в панели ИИ и сохраните как модель."
+                    : "No role models yet. Analyze an author in the AI panel and save as Role Model."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {roleModels.map(model => {
+                  const currentPct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
+                  return (
+                    <div key={model.id} className="rounded-xl border border-border/50 p-3 space-y-2"
+                      style={{ borderColor: `${model.avatarColor || "#8B5CF6"}20` }}>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-white"
+                          style={{ background: model.avatarColor || "#8B5CF6" }}>
+                          {(model.authorName || model.name || "?")[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{model.name}</p>
+                          {model.authorName && <p className="text-[10px] text-muted-foreground/60 truncate">{model.authorName}</p>}
+                        </div>
+                        <span className="text-[11px] font-semibold tabular-nums" style={{ color: currentPct > 0 ? (model.avatarColor || "#8B5CF6") : "hsl(var(--muted-foreground))" }}>
+                          {currentPct}%
+                        </span>
+                        <button
+                          onClick={() => deleteRoleModelMutation.mutate(model.id)}
+                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-destructive/10 transition-colors"
+                        >
+                          <X className="h-3 w-3 text-muted-foreground/50 hover:text-destructive" />
+                        </button>
+                      </div>
+                      {/* Influence slider */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-muted-foreground/40 w-4">0</span>
+                        <input
+                          type="range" min={0} max={100} step={5}
+                          value={currentPct}
+                          onChange={e => setPendingInfluence(p => ({ ...p, [model.id]: Number(e.target.value) }))}
+                          onMouseUp={() => {
+                            const pct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
+                            updateRoleModelMutation.mutate({ id: model.id, data: { influencePercent: pct } });
+                          }}
+                          onTouchEnd={() => {
+                            const pct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
+                            updateRoleModelMutation.mutate({ id: model.id, data: { influencePercent: pct } });
+                          }}
+                          className="flex-1 h-1.5 accent-violet-500 cursor-pointer"
+                          style={{ accentColor: model.avatarColor || "#8B5CF6" }}
+                        />
+                        <span className="text-[9px] text-muted-foreground/40 w-6 text-right">100</span>
+                      </div>
+                      {/* Influence bar visual */}
+                      {currentPct > 0 && (
+                        <div className="h-0.5 rounded-full overflow-hidden bg-border/40">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${currentPct}%`, background: model.avatarColor || "#8B5CF6" }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {roleModels.filter(m => (m.influencePercent ?? 0) > 0).length > 0 && (
+                  <p className="text-[10px] text-muted-foreground/50 px-1">
+                    {lang === "ru"
+                      ? `${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length} активных моделей — синтез-агент будет объединять их стили пропорционально указанному % при работе ИИ.`
+                      : `${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length} active model${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length !== 1 ? "s" : ""} — the synthesis agent will blend styles proportionally when AI writes.`}
+                  </p>
+                )}
               </div>
             )}
           </div>

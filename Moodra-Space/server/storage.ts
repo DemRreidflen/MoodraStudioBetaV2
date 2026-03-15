@@ -1,10 +1,11 @@
 import { db } from "./db";
-import { books, chapters, characters, notes, sources, users, hypotheses, boards, drafts, noteCollections } from "@shared/schema";
+import { books, chapters, characters, notes, sources, users, hypotheses, boards, drafts, noteCollections, authorRoleModels } from "@shared/schema";
 import type {
   Book, InsertBook, Chapter, InsertChapter, Character, InsertCharacter,
   Note, InsertNote, Source, InsertSource, User,
   Hypothesis, InsertHypothesis, Board, Draft, InsertDraft,
-  NoteCollection, InsertNoteCollection
+  NoteCollection, InsertNoteCollection,
+  AuthorRoleModel, InsertAuthorRoleModel
 } from "@shared/schema";
 import { eq, desc, asc } from "drizzle-orm";
 
@@ -57,6 +58,11 @@ export interface IStorage {
   createNoteCollection(col: InsertNoteCollection): Promise<NoteCollection>;
   updateNoteCollection(id: number, data: Partial<InsertNoteCollection>): Promise<NoteCollection | undefined>;
   deleteNoteCollection(id: number): Promise<void>;
+
+  getAuthorRoleModels(bookId: number): Promise<AuthorRoleModel[]>;
+  createAuthorRoleModel(data: InsertAuthorRoleModel): Promise<AuthorRoleModel>;
+  updateAuthorRoleModel(id: number, data: Partial<InsertAuthorRoleModel>): Promise<AuthorRoleModel | undefined>;
+  deleteAuthorRoleModel(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -221,6 +227,21 @@ export class DatabaseStorage implements IStorage {
   }
   async deleteNoteCollection(id: number) {
     await db.delete(noteCollections).where(eq(noteCollections.id, id));
+  }
+
+  async getAuthorRoleModels(bookId: number) {
+    return db.select().from(authorRoleModels).where(eq(authorRoleModels.bookId, bookId)).orderBy(asc(authorRoleModels.createdAt));
+  }
+  async createAuthorRoleModel(data: InsertAuthorRoleModel) {
+    const [m] = await db.insert(authorRoleModels).values(data).returning();
+    return m;
+  }
+  async updateAuthorRoleModel(id: number, data: Partial<InsertAuthorRoleModel>) {
+    const [m] = await db.update(authorRoleModels).set(data).where(eq(authorRoleModels.id, id)).returning();
+    return m;
+  }
+  async deleteAuthorRoleModel(id: number) {
+    await db.delete(authorRoleModels).where(eq(authorRoleModels.id, id));
   }
 }
 

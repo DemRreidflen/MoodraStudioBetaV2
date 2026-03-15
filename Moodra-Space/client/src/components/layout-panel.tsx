@@ -451,6 +451,8 @@ function Page({
         )}
         {blocks.map((b, i) => {
           const indentPx = b.indentLevel * fontSizePx * 1.8;
+          const nestBorderLeft = b.indentLevel > 0 ? `2px solid ${accent}25` : undefined;
+          const nestPaddingLeft = b.indentLevel > 0 ? fontSizePx * 0.5 : 0;
 
           if (b.type === "h1" || b.type === "h2" || b.type === "heading") {
             return (
@@ -461,9 +463,11 @@ function Page({
                 marginTop: fontSizePx * 1.0 + paraSpacingPx,
                 marginBottom: fontSizePx * 0.3,
                 marginLeft: indentPx,
+                paddingLeft: nestPaddingLeft,
+                borderLeft: nestBorderLeft,
                 lineHeight: 1.3,
                 color: accent,
-                borderBottom: `1px solid ${accent}22`,
+                borderBottom: nestBorderLeft ? undefined : `1px solid ${accent}22`,
                 paddingBottom: fontSizePx * 0.2,
               }}>{b.text}</h3>
             );
@@ -497,6 +501,8 @@ function Page({
                 lineHeight: lineSpacing,
                 color: "#1a1a1a",
                 marginLeft: bulletIndent,
+                paddingLeft: nestPaddingLeft,
+                borderLeft: nestBorderLeft,
                 textIndent: `-${fontSizePx * 1.2}px`,
                 marginBottom: fontSizePx * 0.1 + paraSpacingPx,
                 marginTop: 0,
@@ -514,6 +520,8 @@ function Page({
                 lineHeight: lineSpacing,
                 color: "#1a1a1a",
                 marginLeft: numIndent,
+                paddingLeft: nestPaddingLeft,
+                borderLeft: nestBorderLeft,
                 textIndent: 0,
                 marginBottom: fontSizePx * 0.1 + paraSpacingPx,
                 marginTop: 0,
@@ -529,6 +537,8 @@ function Page({
                 lineHeight: lineSpacing,
                 color: "#1a1a1a",
                 marginLeft: checkIndent,
+                paddingLeft: nestPaddingLeft,
+                borderLeft: nestBorderLeft,
                 textIndent: `-${fontSizePx * 1.2}px`,
                 marginBottom: fontSizePx * 0.1 + paraSpacingPx,
                 marginTop: 0,
@@ -580,6 +590,8 @@ function Page({
               textAlign: b.indentLevel > 0 ? "left" : "justify",
               textIndent: useIndent ? fontSizePx * 1.5 : 0,
               marginLeft: indentPx,
+              paddingLeft: nestPaddingLeft,
+              borderLeft: nestBorderLeft,
               color: "#1a1a1a",
               marginBottom: fontSizePx * 0.15 + paraSpacingPx,
               marginTop: 0,

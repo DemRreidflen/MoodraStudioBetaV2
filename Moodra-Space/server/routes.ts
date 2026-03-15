@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema } from "@shared/schema";
+import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema, insertAuthorRoleModelSchema } from "@shared/schema";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
@@ -511,6 +511,132 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await storage.deleteNoteCollection(Number(req.params.id));
       res.status(204).send();
     } catch (e) { res.status(500).json({ error: "Error deleting collection" }); }
+  });
+
+  // ─── Author Role Models ───────────────────────────────────────────────────
+
+  app.get("/api/books/:bookId/role-models", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const models = await storage.getAuthorRoleModels(Number(req.params.bookId));
+      res.json(models);
+    } catch (e) { res.status(500).json({ error: "Error loading role models" }); }
+  });
+
+  app.post("/api/books/:bookId/role-models", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const data = insertAuthorRoleModelSchema.parse({ ...req.body, bookId: Number(req.params.bookId) });
+      const model = await storage.createAuthorRoleModel(data);
+      res.status(201).json(model);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/role-models/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const model = await storage.updateAuthorRoleModel(Number(req.params.id), req.body);
+      if (!model) return res.status(404).json({ error: "Role model not found" });
+      res.json(model);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/role-models/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteAuthorRoleModel(Number(req.params.id));
+      res.status(204).send();
+    } catch (e) { res.status(500).json({ error: "Error deleting role model" }); }
+  });
+
+  // ─── Co-Author Synthesis ──────────────────────────────────────────────────
+  // POST /api/books/:bookId/ai/co-author — parallel multi-model synthesis
+  app.post("/api/books/:bookId/ai/co-author", isAuthenticated, async (req: Request, res: Response) => {
+    const { text, instruction, mode } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: "text required" });
+
+    let ai: OpenAI;
+    let aiModel: string;
+    try {
+      ai = await getOpenAI(req);
+      aiModel = await getUserModel(req);
+    } catch (e: any) {
+      const { status, message, code } = openAIErrorMessage(e);
+      return res.status(status).json({ error: message, code });
+    }
+
+    const langInstruction = getLangInstruction(req);
+    const bookId = Number(req.params.bookId);
+
+    try {
+      const allModels = await storage.getAuthorRoleModels(bookId);
+      const activeModels = allModels.filter(m => (m.influencePercent ?? 0) > 0);
+
+      // No active role models — fall through to simple improve
+      if (activeModels.length === 0) {
+        const baseInstruction = instruction || "Improve and enhance this text while preserving the author's voice and core meaning.";
+        const completion = await ai.chat.completions.create({
+          model: aiModel,
+          messages: [
+            { role: "system", content: `You are an expert editor. ${baseInstruction} Return ONLY the result. ${langInstruction}` },
+            { role: "user", content: text },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        });
+        trackTokens(getUserId(req), completion.usage?.total_tokens || 0);
+        return res.json({ improved: completion.choices[0].message.content?.trim() || "", usedModels: [] });
+      }
+
+      // Parallel: one request per active role model
+      const baseInstruction = instruction || (mode === "continue" ? "Continue this text in the author's style." : "Improve and enhance this text.");
+      const parallelResults = await Promise.all(
+        activeModels.slice(0, 5).map(async (rm) => {
+          const styleCtx = rm.styleInstruction?.trim()
+            ? `You write in the style of ${rm.authorName || rm.name}. ${rm.styleInstruction}`
+            : `You write in the style of ${rm.authorName || rm.name}.`;
+          const c = await ai.chat.completions.create({
+            model: aiModel,
+            messages: [
+              { role: "system", content: `${styleCtx} ${baseInstruction} Return ONLY the result. ${langInstruction}` },
+              { role: "user", content: text },
+            ],
+            temperature: 0.75,
+            max_tokens: 1800,
+          });
+          trackTokens(getUserId(req), c.usage?.total_tokens || 0);
+          return { name: rm.authorName || rm.name, pct: rm.influencePercent ?? 0, result: c.choices[0].message.content?.trim() || "" };
+        })
+      );
+
+      // Synthesis agent
+      const total = parallelResults.reduce((s, r) => s + r.pct, 0) || 1;
+      const versionsBlock = parallelResults
+        .map(r => `=== ${r.name} (influence: ${Math.round((r.pct / total) * 100)}%) ===\n${r.result}`)
+        .join("\n\n");
+
+      const synthesisCompletion = await ai.chat.completions.create({
+        model: aiModel,
+        messages: [
+          {
+            role: "system",
+            content: `You are a master synthesis agent. You receive multiple rewritten versions of a text, each representing a different author's stylistic influence at a specified weight. Your task: produce a single, coherent, polished text that blends these styles proportionally to their influence weights. Preserve the original meaning. Return ONLY the final synthesized text. ${langInstruction}`,
+          },
+          {
+            role: "user",
+            content: `ORIGINAL TEXT:\n${text}\n\nSTYLED VERSIONS:\n${versionsBlock}\n\nSynthesize these into one text. Weight each author's contribution by their influence percentage. The result should feel like a natural, seamless blend of all styles in the given proportions.`,
+          },
+        ],
+        temperature: 0.65,
+        max_tokens: 2200,
+      });
+      trackTokens(getUserId(req), synthesisCompletion.usage?.total_tokens || 0);
+
+      const improved = synthesisCompletion.choices[0].message.content?.trim() || "";
+      res.json({
+        improved,
+        usedModels: parallelResults.map(r => ({ name: r.name, pct: r.pct })),
+      });
+    } catch (e: any) {
+      const { status, message } = openAIErrorMessage(e);
+      res.status(status).json({ error: message });
+    }
   });
 
   // ---- Idea Board ----
@@ -1931,10 +2057,11 @@ ${body}
       const content = sanitizeContent(raw);
       const indentLevel = Math.max(0, Math.min(8, Number(b.metadata?.indentLevel ?? 0)));
       const indentEm = indentLevel * 1.8;
+      const nestBorder = indentLevel > 0 ? ";border-left:2px solid rgba(0,0,0,0.10);padding-left:0.5em" : "";
 
       // For non-list paragraphs: indent level shifts the left margin; suppress text-indent when indented
       const indentAttr = indentLevel > 0
-        ? ` style="margin-left:${indentEm}em;text-indent:0"`
+        ? ` style="margin-left:${indentEm}em;text-indent:0${nestBorder}"`
         : (b.metadata?.indent === false ? ' style="text-indent:0"'
           : b.metadata?.indent === true ? ' style="text-indent:1.6em"' : '');
 
@@ -1944,19 +2071,19 @@ ${body}
         case "h3": return `<h4 class="section-h3">${content}</h4>`;
         case "heading": return `<h2 class="section-h1">${content}</h2>`;
         case "quote":
-          return `<blockquote style="margin-left:${indentEm}em">${content}</blockquote>`;
+          return `<blockquote style="margin-left:${indentEm}em${nestBorder}">${content}</blockquote>`;
         case "bullet_item": {
           const ml = (indentLevel + 1) * 1.8;
-          return `<p class="list-bullet" style="margin-left:${ml}em;text-indent:-1.4em;padding-left:0">&#8226;&nbsp;${content}</p>`;
+          return `<p class="list-bullet" style="margin-left:${ml}em;text-indent:-1.4em;padding-left:0${nestBorder}">&#8226;&nbsp;${content}</p>`;
         }
         case "numbered_item": {
           const ml = (indentLevel + 1) * 1.8;
-          return `<p class="list-numbered" style="margin-left:${ml}em;text-indent:0">${content}</p>`;
+          return `<p class="list-numbered" style="margin-left:${ml}em;text-indent:0${nestBorder}">${content}</p>`;
         }
         case "check_item": {
           const ml = (indentLevel + 1) * 1.8;
           const checked = b.metadata?.checked ? "&#9745;" : "&#9744;";
-          return `<p class="list-check" style="margin-left:${ml}em;text-indent:-1.4em;padding-left:0">${checked}&nbsp;${content}</p>`;
+          return `<p class="list-check" style="margin-left:${ml}em;text-indent:-1.4em;padding-left:0${nestBorder}">${checked}&nbsp;${content}</p>`;
         }
         case "hypothesis": return `<div class="callout callout-hypothesis" style="margin-left:${indentEm}em"><span class="callout-icon">&#9670;</span><div>${content}</div></div>`;
         case "argument": return `<div class="callout callout-argument" style="margin-left:${indentEm}em"><span class="callout-icon">&#10003;</span><div>${content}</div></div>`;
