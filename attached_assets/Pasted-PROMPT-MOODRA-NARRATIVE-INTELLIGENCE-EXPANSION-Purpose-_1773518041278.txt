@@ -1,0 +1,292 @@
+PROMPT: MOODRA NARRATIVE INTELLIGENCE EXPANSION
+
+Purpose
+Evolve Moodra into a full narrative intelligence platform where AI behaves not as a chatbot but as a distributed team of analytical agents embedded into the book-creation workflow.
+
+The system must provide deep structural reasoning about texts, simulate expert readers, analyze external works, and help authors develop their own thinking architecture.
+
+All analysis outputs must produce structured reports that can be saved directly into the Research module under the category:
+
+Agent Review
+
+These reports must resemble professional editorial or academic analyses rather than short feedback.
+
+---
+
+SECTION 1 — AI AGENT REVIEW SYSTEM
+
+Agents must not produce short responses.
+
+Instead they generate long-form analytical reports structured as professional critique documents.
+
+Every report must include:
+
+1. Structural Overview
+   Analysis of the text’s architecture.
+
+2. Core Idea Extraction
+   Identification of the central thesis or narrative driver.
+
+3. Argument or Narrative Analysis
+   Detailed breakdown of logical flow or plot progression.
+
+4. Strength Assessment
+   What works particularly well.
+
+5. Weakness Diagnosis
+   Structural or conceptual problems.
+
+6. Reader Experience Simulation
+   How the text may be perceived by different readers.
+
+7. Strategic Recommendations
+   Specific suggestions for improvement.
+
+8. Vision Vectors
+   New directions the author could explore.
+
+Reports must resemble a deep editorial memo rather than a typical AI answer.
+
+Length must be substantial enough to provide meaningful guidance.
+
+---
+
+SECTION 2 — AGENT PERSONALITIES
+
+Agents should behave as distinct personalities rather than generic AI.
+
+Examples:
+
+Editorial Agent
+Acts as a professional book editor.
+
+Philosophical Agent
+Explores conceptual depth and underlying ideas.
+
+Narrative Architect
+Analyzes structure and pacing.
+
+Reader Simulation Agent
+Represents different reader types.
+
+Argument Analyst
+Evaluates reasoning strength.
+
+Consistency Agent
+Ensures internal logic across chapters.
+
+Each agent must reason according to its role and produce its own style of report.
+
+The platform should present these analyses as if multiple experts are reviewing the manuscript.
+
+---
+
+SECTION 3 — AGENT REVIEW INTEGRATION
+
+Agent reports must be integrated into the platform workflow.
+
+When an agent analysis is completed:
+
+• the report is automatically formatted
+• it is saved to the Research module
+• it appears under the category:
+
+Agent Review
+
+The report must include metadata:
+
+Agent name
+Analyzed chapter or text
+Date of analysis
+Review type
+
+Users can reopen these reports later for reference.
+
+---
+
+SECTION 4 — RESEARCH MODULE EXPANSION
+
+The Research module must support uploading external works.
+
+Supported materials:
+
+books
+articles
+essays
+academic papers
+long documents
+
+After uploading a text the system performs a deep analytical process.
+
+The goal is not summarization but reconstruction of the author's thinking model.
+
+---
+
+SECTION 5 — AUTHOR MIND ANALYSIS
+
+The system must generate a multi-layer analysis of the uploaded work.
+
+This analysis reconstructs:
+
+Conceptual Framework
+The philosophical or thematic foundation.
+
+Argument Structure
+How the author builds reasoning.
+
+Narrative Structure
+Story progression and pacing.
+
+Stylistic Signature
+Sentence rhythm, tone, vocabulary patterns.
+
+Thinking Methodology
+How the author approaches ideas.
+
+Emotional Dynamics
+How tension or emotional energy is created.
+
+The result is a long multi-page analysis.
+
+---
+
+SECTION 6 — ROLE MODEL CREATION
+
+Based on this analysis the platform must generate a Role Model.
+
+Role Model represents a structured model of an author's creative mind.
+
+The system produces:
+
+Style parameters
+Structural patterns
+Conceptual tendencies
+Narrative habits
+Argument strategies
+
+The Role Model is stored as an object.
+
+---
+
+SECTION 7 — ROLE MODEL LIBRARY
+
+Moodra must include a new category in Research:
+
+Role Model Library
+
+Users can store multiple author models here.
+
+Examples:
+
+Stephen King
+Umberto Eco
+Yuval Noah Harari
+
+Each model contains the analytical reconstruction of the author's thinking patterns.
+
+---
+
+SECTION 8 — STYLE BLENDING SYSTEM
+
+Users must be able to combine several Role Models.
+
+Example configuration:
+
+Stephen King — 40%
+Haruki Murakami — 30%
+Original author voice — 30%
+
+The AI generation system must then produce outputs influenced by these proportions.
+
+This creates a hybrid creative voice.
+
+---
+
+SECTION 9 — PROMPT META-ARCHITECTURE
+
+Instead of static prompts, the platform must use a meta-prompt system.
+
+Prompts are dynamically constructed using variables such as:
+
+book type
+core theme
+tone model
+role model parameters
+chapter context
+reader profile
+
+Example structure:
+
+Role
+Agent personality
+
+Context
+Book metadata
+Narrative structure
+Chapter text
+
+Task
+Specific analysis objective
+
+Output format
+Structured analytical report
+
+---
+
+SECTION 10 — AGENT COLLABORATION
+
+Agents must be capable of sequential reasoning.
+
+Example workflow:
+
+Narrative Architect identifies pacing problem.
+
+Critic Agent explains the issue.
+
+Editor Agent suggests concrete revision strategies.
+
+All outputs are merged into a single review report.
+
+---
+
+SECTION 11 — MULTILINGUAL INTELLIGENCE
+
+The entire system must operate across languages.
+
+The system must:
+
+analyze texts regardless of language
+translate structural insights between languages
+preserve stylistic features during translation
+
+Users must be able to upload texts in different languages and still obtain consistent analytical models.
+
+---
+
+SECTION 12 — HUMAN-LIKE EXPERIENCE
+
+The platform should create the feeling of an intellectual environment rather than software.
+
+When the user runs an agent review it should feel like sending the manuscript to expert reviewers.
+
+Reports should read like professional critiques written by thoughtful humans.
+
+The system must avoid superficial feedback and instead provide deep reasoning and insight.
+
+---
+
+SECTION 13 — SYSTEM PHILOSOPHY
+
+Moodra should become a thinking environment.
+
+The platform must help users:
+
+develop ideas
+refine arguments
+construct narratives
+learn from great authors
+build their own intellectual voice
+
+The AI system must function as a collaborative editorial and analytical team supporting the author.
+
+END OF PROMPT

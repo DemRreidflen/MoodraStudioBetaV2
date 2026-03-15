@@ -1,0 +1,307 @@
+MOODRA BOOK LAYOUT ENGINE
+Полная спецификация движка верстки книги
+
+Цель: создать профессиональный движок верстки книги, который:
+
+обеспечивает стабильный книжный ритм
+
+избегает типографических ошибок
+
+делает страницы визуально равномерными
+
+корректно управляет переносами
+
+корректно управляет page breaks
+
+генерирует профессиональный PDF.
+
+1. Основные принципы
+
+Движок не должен работать как обычный веб-рендер.
+
+Запрещено:
+
+верстать страницу как HTML контейнер
+
+делать page break только из-за overflow
+
+принимать решения строка-за-строкой.
+
+Правильная модель:
+
+Text
+→ Paragraph layout
+→ Line optimization
+→ Page layout
+→ Page scoring
+→ Final page rendering
+
+Каждый уровень должен оптимизироваться отдельно.
+
+2. Геометрия страницы
+
+Каждая страница имеет фиксированную геометрию.
+
+Page
+ ├ Top margin
+ ├ Content area
+ ├ Footer safe zone
+ └ Footer (page number)
+
+Контент никогда не может заходить в:
+
+Footer safe zone
+Footer
+2.1 Footer Safe Zone
+
+Над номером страницы всегда существует безопасная зона.
+
+footerSafeZoneHeight ≈ 1 line-height
+
+Последняя строка текста должна заканчиваться выше этой зоны.
+
+3. Baseline Grid (вертикальный ритм)
+
+Все строки книги должны быть привязаны к baseline grid.
+
+baseline = lineHeight
+
+Это обеспечивает:
+
+одинаковый вертикальный ритм
+
+одинаковый уровень окончания страниц.
+
+4. Paragraph Layout Engine
+
+Абзацы не должны разбиваться greedy-алгоритмом.
+
+Запрещено:
+
+add words until overflow
+break line
+
+Нужно использовать paragraph optimization.
+
+4.1 Knuth-Plass line breaking
+
+Абзац должен разбиваться на строки методом оптимизации.
+
+Алгоритм:
+
+paragraph
+→ generate possible breakpoints
+→ compute line combinations
+→ score layouts
+→ choose best
+4.2 Badness score строки
+
+Строка получает штраф за:
+
+слишком растянутые пробелы
+слишком сжатые пробелы
+короткую строку
+перенос слова
+несколько переносов подряд
+4.3 Границы пробелов
+spaceStretch = up to 110%
+spaceShrink = down to 85%
+
+Это позволяет избегать лишних переносов.
+
+5. Hyphenation (переносы)
+
+Переносы должны быть словарными.
+
+hyphenationDictionary(language)
+
+Запрещено:
+
+переносить слово в случайном месте.
+
+5.1 Правила переносов
+maxHyphensPerPage = 3
+maxConsecutiveHyphenLines = 2
+5.2 Перенос у границы страницы
+
+Перенос слова в последней строке страницы получает очень высокий penalty.
+
+6. Widow / Orphan Control
+
+Запрещено:
+
+widow = 1 строка абзаца вверху страницы
+orphan = 1 строка абзаца внизу страницы
+
+Минимум:
+
+minLinesTop = 2
+minLinesBottom = 2
+7. Page Layout Engine
+
+После разбиения абзацев на строки начинается верстка страницы.
+
+Но нельзя делать:
+
+place lines until overflow
+
+Нужно использовать candidate page breaks.
+
+7.1 Candidate Breakpoints
+
+Движок должен тестировать несколько вариантов:
+
+currentLine
+currentLine +1
+currentLine +2
+currentLine +3
+currentLine +4
+
+Каждый вариант должен симулироваться.
+
+8. Page Scoring System
+
+Каждый вариант страницы получает score.
+
+score =
+unusedSpacePenalty
++ widowPenalty
++ orphanPenalty
++ hyphenPenalty
++ uglySplitPenalty
++ shortLastLinePenalty
++ bottomRhythmPenalty
+
+Выбирается минимальный score.
+
+9. Page Density
+
+Книга должна иметь стабильную плотность.
+
+targetFillRatio = 92% – 97%
+
+Если страница заполняется только на 80% — она получает штраф.
+
+10. Bottom Rhythm
+
+Все обычные страницы должны заканчиваться примерно на одном уровне.
+
+Определяется:
+
+preferredBottomBaseline
+
+Если страница заканчивается слишком высоко:
+
+bottomRhythmPenalty
+11. Short Last Line
+
+Страница не должна заканчиваться:
+
+одним словом
+
+очень короткой строкой.
+
+Минимум:
+
+lastLineWidth >= 40% text measure
+12. Ugly Paragraph Split
+
+Нельзя переносить абзац так, чтобы:
+
+на следующей странице осталась 1 строка
+
+на предыдущей осталась 1 строка.
+
+13. Paragraph Rebalancing
+
+Перед page break движок должен попытаться:
+
+recompute paragraph line breaks
+adjust hyphenation
+try alternative line patterns
+14. Page Types
+
+Нужно различать:
+
+NormalTextPage
+ChapterStartPage
+TechnicalPage
+
+Только NormalTextPage подчиняется строгому page fill.
+
+15. Chapter Start Page
+
+Страница начала главы может иметь свободное пространство сверху.
+
+Это нормально.
+
+Но следующая страница должна возвращаться в baseline rhythm.
+
+16. Pagination Pipeline
+
+Полный pipeline должен выглядеть так:
+
+Text
+→ tokenize paragraphs
+→ paragraph optimization
+→ generate line boxes
+→ candidate page breaks
+→ simulate layouts
+→ compute scores
+→ choose best layout
+→ render page
+17. Rendering
+
+После выбора layout страницы:
+
+render lines
+render page number
+render headers
+render margins
+
+Page number всегда вне flow.
+
+18. PDF Generation
+
+PDF должен генерироваться из page model, а не из DOM.
+
+Каждая страница должна быть отдельным canvas.
+
+19. Запрещенные решения
+
+Запрещено:
+
+растягивать line height ради заполнения страницы
+
+растягивать paragraph spacing
+
+изменять baseline grid.
+
+20. Финальная проверка страницы
+
+Перед commit страницы:
+
+validatePage():
+ no clipped lines
+ no footer collision
+ no widow
+ no orphan
+ hyphenation valid
+ page fill within range
+ bottom rhythm acceptable
+
+Если не проходит → пересобрать.
+
+21. Ожидаемый результат
+
+После реализации:
+
+страницы заканчиваются на одном уровне
+
+пустое пространство минимально
+
+переносы аккуратные
+
+абзацы выглядят стабильно
+
+книга выглядит как издательская верстка.

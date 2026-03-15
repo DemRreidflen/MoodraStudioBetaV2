@@ -1,0 +1,205 @@
+PROMPT: MOODRA UX AND MULTILINGUAL ADAPTATION IMPROVEMENTS
+
+Goal
+Improve the usability of the text editing workflow, enhance the AI text improvement interface, and introduce a multilingual adaptation system that allows authors to transform chapters into new language editions of their books.
+
+All improvements must integrate seamlessly with the existing Moodra writing environment and maintain a smooth creative flow.
+
+---
+
+SECTION 1 — CONTEXTUAL TEXT EDITING IMPROVEMENT
+
+When a user highlights a portion of text inside the writing editor, a contextual editing toolbar must appear.
+
+This floating panel should contain the following actions:
+
+• Improve text
+• Rewrite
+• Simplify
+• Expand
+• Translate
+• Adapt tone
+• Fix grammar
+
+The panel must appear near the selected text and disappear when the user clicks outside the selection.
+
+Each action should open a lightweight AI interaction panel rather than redirecting the user away from the editor.
+
+The goal is to keep the writing flow uninterrupted.
+
+---
+
+SECTION 2 — AI TEXT IMPROVEMENT PANEL
+
+Inside the “Write” or “Improve text” mode, the AI result interface must become more interactive.
+
+The current result window should support:
+
+Scrolling
+Allow the user to scroll through long AI outputs.
+
+Regeneration
+A “Regenerate” button allowing the user to produce a new variation of the improved text.
+
+Version comparison
+Users should be able to compare the original text and the improved version.
+
+Insert options
+Two clear actions must exist:
+
+Insert replacing original text
+Insert as new paragraph below
+
+Custom instruction field
+Allow the user to optionally add a short instruction before regenerating the text.
+
+Example instruction:
+
+“Make the tone more philosophical.”
+“Make the argument clearer.”
+
+The AI panel should behave like a small editing assistant embedded in the writing environment.
+
+---
+
+SECTION 3 — MULTILINGUAL ADAPTATION FEATURE
+
+Introduce a new feature called:
+
+Language Adaptation
+
+This feature allows authors to adapt chapters into another language while preserving meaning and narrative style.
+
+The function should appear as a button inside the chapter creation interface.
+
+Button label:
+
+Adapt to another language
+
+---
+
+SECTION 4 — LANGUAGE SELECTION
+
+When the user clicks this button, a modal window appears.
+
+The modal contains:
+
+Language selection dropdown
+
+Supported languages should initially include the most common global languages:
+
+English
+Spanish
+German
+French
+Italian
+Portuguese
+Chinese
+Japanese
+Korean
+Ukrainian
+Russian
+
+The user selects a language and confirms the adaptation.
+
+---
+
+SECTION 5 — AI ADAPTATION PROCESS
+
+The system uses a specialized AI agent called:
+
+Native Translation Agent
+
+This agent must follow a structured instruction:
+
+“Adapt the text natively into the selected language.
+Preserve meaning, narrative tone, and stylistic identity of the original text.
+Ensure the adaptation reads naturally for a native speaker while remaining faithful to the original structure and intent.”
+
+This is not a literal translation but a stylistic language adaptation.
+
+---
+
+SECTION 6 — NEW BOOK CREATION LOGIC
+
+When the adaptation process begins, the system must display a notification explaining the workflow.
+
+Notification text concept:
+
+“Language adaptation will create a new book version in the selected language.
+The adapted chapter will be copied into this new version.
+The book settings and structure can then be customized for that language.”
+
+This prevents confusion and keeps different language versions organized.
+
+---
+
+SECTION 7 — ADAPTED BOOK STRUCTURE
+
+The new book version must include:
+
+Language tag in its title
+
+Example:
+
+Book Title (English Adaptation)
+Book Title (Spanish Adaptation)
+
+The adapted chapter becomes the first chapter of the new book.
+
+All metadata from the original chapter should be preserved.
+
+---
+
+SECTION 8 — ADDING ADAPTED CHAPTERS TO EXISTING BOOKS
+
+If the user already has another book in the target language, the system should allow an alternative workflow.
+
+Instead of creating a new book, the user can choose:
+
+Add adapted chapter to existing book.
+
+A second modal window should appear showing all books written in the selected language.
+
+The user selects the target book and the adapted chapter is inserted there.
+
+---
+
+SECTION 9 — ADAPTATION MANAGEMENT
+
+Inside each chapter interface, a small indicator should show if the chapter has language adaptations.
+
+Example:
+
+Language adaptations available:
+
+English
+Spanish
+German
+
+Clicking one should allow quick navigation between versions.
+
+---
+
+SECTION 10 — DESIGN PRINCIPLES
+
+The entire adaptation system must follow three UX principles:
+
+Clarity
+Users must clearly understand that language adaptation creates parallel book versions.
+
+Continuity
+The writing workflow should not be interrupted.
+
+Scalability
+The system should support authors writing multilingual book ecosystems.
+
+---
+
+SECTION 11 — LONG TERM VISION
+
+This feature should enable authors to easily create international editions of their books.
+
+Moodra should become a platform where authors can write once and expand their work across multiple languages with intelligent AI adaptation.
+
+END OF PROMPT

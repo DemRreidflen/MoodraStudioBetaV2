@@ -1,0 +1,310 @@
+PROMPT — Safe Bug Fix Update (do not change layout engine behavior)
+
+The current V2 book layout engine works well and produces stable page layout, page density, and pagination.
+The goal of this update is only to fix specific bugs without changing the core layout logic or page balancing system.
+
+Do not rewrite or rebalance the layout engine.
+Do not modify page scoring, page density, candidate breakpoints, footer safe zones, or paragraph layout logic.
+
+Only fix the issues described below.
+
+1. Fix language detection on the login/start screen
+
+The language of the authorization/start screen must automatically match the user's browser language.
+
+Required behavior
+
+Detect the browser language using:
+
+navigator.language
+
+or
+
+navigator.languages
+
+Then apply the following logic:
+
+if language starts with "de" → German
+if language starts with "ru" → Russian
+if language starts with "uk" → Ukrainian
+if language starts with "en" → English
+otherwise → English (default)
+
+Example:
+
+Browser language	UI language
+de-DE	German
+ru-RU	Russian
+uk-UA	Ukrainian
+en-US	English
+fr-FR	English (fallback)
+es-ES	English (fallback)
+
+Important:
+
+this affects only the start/auth screen
+
+it must not affect the book language settings inside the editor.
+
+2. Fix missing text fragments in preview
+
+Currently there is a bug where the preview sometimes loses pieces of text, even though:
+
+the text exists in the editor
+
+the exported PDF contains the correct text.
+
+This indicates that the preview renderer and export renderer are not using the exact same text source.
+
+Required fix
+
+Ensure that the preview uses the same final text model as the layout engine and export system.
+
+The correct pipeline must be:
+
+Text Editor Content
+→ Layout Engine
+→ Final Page Model
+→ Preview Renderer
+→ PDF Renderer
+
+Preview must not use an independent rendering path.
+
+Required behavior
+
+Preview must display:
+
+the full text
+
+identical line breaks
+
+identical page breaks
+
+identical hyphenation
+
+identical paragraph continuation.
+
+Preview must always reflect 100% of the editor text.
+
+No text fragments should disappear.
+
+3. Fix hyphen rendering when words split across lines
+
+Currently, when a word splits across lines, especially at the end of a page, the hyphen sometimes does not appear.
+
+Example bug:
+
+слово
+переносится
+
+instead of
+
+сло-
+во
+Required fix
+
+Whenever the layout engine splits a word across lines:
+
+if wordSplitsAcrossLines:
+    renderHyphen = true
+
+Important rules:
+
+hyphen must appear at the end of the first line
+
+continuation must start on the next line
+
+hyphen must not appear when word is not split.
+
+4. Fix incorrect hyphenation rules
+
+Currently words sometimes split incorrectly:
+
+Examples:
+
+splitting after a single letter
+
+breaking syllables incorrectly
+
+incorrect splits in Ukrainian.
+
+This must be fixed by using language-aware hyphenation dictionaries.
+
+Required hyphenation system
+
+Use dictionary-based hyphenation for each supported language:
+
+Language	Hyphenation dictionary
+Ukrainian	uk hyphenation patterns
+Russian	ru hyphenation patterns
+English	en hyphenation patterns
+German	de hyphenation patterns
+
+Possible libraries:
+
+Hyphenation.js
+
+Hypher
+
+other dictionary-based hyphenation engine.
+
+5. Hyphenation rules that must be enforced
+
+The system must enforce the following typographic rules:
+
+Minimum characters before split
+minPrefix = 2
+Minimum characters after split
+minSuffix = 2
+
+Example:
+
+❌ Forbidden
+
+с-лово
+
+❌ Forbidden
+
+слово-
+
+✔ Allowed
+
+сло-
+во
+6. Prevent one-letter splits
+
+The engine must never create splits like:
+
+а-
+втор
+
+or
+
+i-
+mage
+
+Minimum rule:
+
+minCharactersBeforeHyphen = 2
+minCharactersAfterHyphen = 2
+7. Prevent page-edge hyphen bugs
+
+Special fix for page boundary:
+
+If a word is split across a page break, the hyphen must still be rendered.
+
+Example:
+
+Page 1:
+
+перено-
+
+Page 2:
+
+сится
+
+The hyphen must not disappear.
+
+8. Preview must match export exactly
+
+Currently export is correct but preview sometimes differs.
+
+This must be fixed.
+
+Required behavior
+
+Preview and PDF must render from the same page model.
+
+Correct architecture:
+
+Layout Engine
+→ Page Model
+→ Preview Renderer
+→ PDF Renderer
+
+Both renderers must consume identical data.
+
+Preview must always match exported PDF.
+
+9. Language-specific hyphenation support
+
+The hyphenation system must automatically switch patterns based on the book language.
+
+Supported languages:
+
+Ukrainian
+Russian
+English
+German
+
+The engine must load the correct hyphenation dictionary depending on the book language setting.
+
+Example:
+
+if bookLanguage = "uk"
+load uk hyphenation patterns
+10. Do not modify layout behavior
+
+This update must not affect:
+
+page density
+
+page balancing
+
+candidate breakpoints
+
+page scoring
+
+footer safe zone
+
+paragraph layout
+
+widow/orphan control.
+
+These systems are currently working well and must remain unchanged.
+
+Only fix:
+
+language detection
+
+preview text rendering
+
+hyphen rendering
+
+dictionary-based hyphenation.
+
+11. Validation checklist
+
+After implementing fixes, verify:
+
+Language detection
+
+start screen uses browser language
+
+unsupported languages fallback to English
+
+Preview
+
+no missing text fragments
+
+preview shows exactly the editor content
+
+Hyphenation
+
+hyphen always appears when word splits
+
+no one-letter splits
+
+correct syllable-based splits
+
+Export
+
+PDF matches preview exactly.
+
+12. Final instruction
+
+Apply these fixes as non-destructive improvements to the existing V2 layout engine.
+
+Do not change the page balancing system or pagination algorithm.
+
+Only extend the renderer and hyphenation system to fix the listed bugs.

@@ -1,0 +1,335 @@
+PROMPT — Fix remaining hyphenation, preview and EPUB export bugs without changing layout engine
+
+Do not rewrite the current V2 layout engine.
+Do not change the current page fill logic, pagination scoring, footer safe zone, page density balancing, or paragraph balancing.
+
+The current system already works well overall.
+This update must only fix the remaining bugs below.
+
+Main rule
+
+This is a strict non-destructive bug-fix update.
+
+Keep unchanged:
+
+current pagination
+
+current page balancing
+
+current page scoring
+
+current chapter page handling
+
+current text flow logic
+
+current page templates.
+
+Only fix the listed bugs.
+
+1. Fix missing hyphen at line/page break
+Current bug
+
+When a word is split at the end of a line, especially at the end of a page, the preview sometimes shows the split without the hyphen glyph.
+
+This is incorrect.
+
+If a word is split, the hyphen must always be rendered visually.
+
+Required behavior
+if wordSplitsAcrossLinesOrPages:
+    renderHyphenAtEndOfFirstFragment = true
+
+This must work in all cases:
+
+line break inside a page
+
+line break at end of page
+
+page break between fragments
+
+preview mode
+
+PDF export
+
+EPUB export preview model if used.
+
+Important
+
+This is not optional styling.
+The hyphen glyph must be part of the rendered line fragment data.
+
+That means the line model should explicitly know:
+
+fragment.text = "сло"
+fragment.trailingHyphen = true
+
+instead of relying on UI guessing.
+
+2. Forbid invalid one-letter hyphenation
+Current bug
+
+The engine still allows illegal splits like:
+
+о-берег
+
+This is typographically incorrect.
+
+The engine must never split a word after a single letter or before a single letter.
+
+Required rules
+
+For all supported languages:
+
+minCharactersBeforeHyphen = 2
+minCharactersAfterHyphen = 2
+
+If a candidate hyphenation point violates either rule, it must be discarded.
+
+Forbidden examples:
+
+о-берег
+а-втор
+i-mage
+
+Allowed examples only if valid in dictionary and length rules pass.
+
+3. Use dictionary-valid hyphenation points only
+
+The engine must not invent splits visually.
+
+It must use only legal dictionary-based hyphenation points for the current book language.
+
+Supported languages:
+
+Ukrainian
+
+Russian
+
+English
+
+German
+
+Pseudo logic:
+
+hyphenationPoints = getValidHyphenationPoints(word, bookLanguage)
+
+filteredPoints = only points where:
+    prefixLength >= 2
+    suffixLength >= 2
+
+If no valid point remains, the word must not be hyphenated.
+
+4. Preview hyphenation renderer must match export renderer
+Current bug
+
+Preview still demonstrates hyphenation incorrectly.
+
+That means preview is not rendering the same finalized line fragments as export.
+
+This must be fixed.
+
+Required architecture
+
+Preview must render from the exact same finalized line-fragment model as export.
+
+Correct pipeline:
+
+Editor Text
+→ Layout Engine
+→ Final Page Model
+→ Final Line Fragment Model
+→ Preview Renderer
+→ PDF Renderer
+→ EPUB Renderer
+
+Preview must not reconstruct word splits on its own.
+
+Preview must consume already-finalized fragments with explicit hyphen state.
+
+Required data model
+
+Each rendered line fragment must carry explicit metadata:
+
+text
+isSplitWordFragment
+trailingHyphen
+language
+sourceWordId
+
+Then:
+
+preview renders exactly that
+
+export renders exactly that.
+
+This removes mismatch.
+
+5. Special fix for end-of-page hyphen rendering
+
+The bug appears especially often at page boundaries.
+
+When a word is split across pages:
+
+Page N:
+
+пере-
+
+Page N+1:
+
+нос
+
+The hyphen must remain visible at the end of Page N.
+
+This must be handled explicitly in page-boundary rendering, not only in line rendering.
+
+6. Prevent fake visual truncation in preview
+
+If the preview currently clips the trailing hyphen because of width/overflow rules, fix the preview renderer.
+
+The trailing hyphen must be part of the line width calculation.
+
+Meaning:
+
+lineWidth = textWidth + hyphenWidth
+
+not just width of the raw text fragment.
+
+Otherwise preview may hide the hyphen even if layout engine generated it correctly.
+
+7. EPUB download bug from top save button
+Current bug
+
+The top save/export button does not allow downloading the EPUB version of the book.
+
+This must be fixed.
+
+Required behavior
+
+The top save/export action must correctly support EPUB export the same way it supports the other formats.
+
+If export options are shown, EPUB must be:
+
+visible
+
+selectable
+
+generated
+
+downloadable.
+
+If EPUB generation already exists internally but is not triggered, wire the button correctly.
+
+If EPUB generation is missing in this path, connect it to the existing export pipeline.
+
+Required export flow
+Top Save Button
+→ Open export action or run selected export
+→ If format = EPUB
+    generate EPUB
+    create downloadable file
+    trigger download
+Validation for EPUB export
+
+Verify:
+
+EPUB can be triggered from the top save button
+
+file is actually generated
+
+browser download starts
+
+exported EPUB includes full current edited content
+
+no missing text.
+
+8. Keep the current layout system unchanged
+
+These bug fixes must not alter:
+
+page fill ratio
+
+bottom rhythm
+
+candidate breakpoints
+
+page scoring
+
+paragraph balancing
+
+chapter start logic
+
+footer safe zone
+
+widow/orphan logic.
+
+Only fix:
+
+hyphen glyph rendering
+
+illegal one-letter hyphenation
+
+preview/render mismatch
+
+EPUB download wiring.
+
+9. Required validation checklist
+
+After implementation, confirm all of the following:
+
+Hyphen rendering
+
+every split word shows a hyphen
+
+especially at end of page
+
+no silent word split
+
+Hyphenation legality
+
+no one-letter prefix before hyphen
+
+no one-letter suffix after hyphen
+
+only dictionary-valid splits
+
+Preview
+
+preview shows the same split/hyphenation as export
+
+no missing hyphen in preview
+
+no clipped hyphen at line end
+
+EPUB export
+
+EPUB can be downloaded from the top save button
+
+exported file is generated successfully
+
+download starts normally.
+
+10. Short implementation order
+
+Fix line fragment model so split words explicitly store trailing hyphen
+
+Filter hyphenation points with min prefix/suffix = 2
+
+Make preview renderer consume the same finalized fragment model as export
+
+Fix end-of-page hyphen rendering
+
+Fix top save button EPUB export wiring.
+
+11. Short direct instruction
+
+Do a non-destructive bug-fix update of the current V2 layout engine:
+
+always render a hyphen when a word is split across lines/pages
+
+forbid one-letter splits like о-берег
+
+make preview render the exact same finalized hyphenated line fragments as export
+
+fix EPUB download from the top save button
+
+do not change the existing page balancing and pagination system.

@@ -1,0 +1,310 @@
+У меня уже реализован Layout Mode для верстки книги, который использует Paged.js для генерации страниц и позволяет экспортировать PDF.
+
+Сейчас Layout Mode отображает текст как одно длинное полотно с маркерами page break, что неудобно для визуальной работы.
+
+Нужно изменить систему предпросмотра так, чтобы пользователь видел реальные страницы книги, как в профессиональных редакторах.
+
+1. Новый режим отображения страниц
+
+Заменить текущий continuous layout на page-based layout.
+
+Каждая страница должна отображаться как отдельный лист.
+
+Визуально:
+
+белая страница
+
+тень
+
+отступ от других страниц
+
+центрирование на сером фоне
+
+Пример структуры страницы:
+
+<div class="book-page">
+  <div class="page-content">
+      PAGE CONTENT
+  </div>
+
+  <div class="page-footer">
+      12
+  </div>
+</div>
+
+CSS:
+
+.book-page {
+  width: 148mm;
+  height: 210mm;
+  background: white;
+  margin: 40px auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  position: relative;
+}
+
+.page-content {
+  padding: 20mm;
+}
+
+Теперь каждая страница должна быть отдельным блоком, а не частью длинного полотна.
+
+2. Режим разворота книги (Book Spread Mode)
+
+Добавить режим Book View, где страницы отображаются как разворот книги.
+
+Интерфейс:
+
+Single Page
+Book Spread
+
+Когда включен Book Spread:
+
+страницы отображаются по две.
+
+Пример:
+
+[ Page 12 ] [ Page 13 ]
+[ Page 14 ] [ Page 15 ]
+
+CSS layout:
+
+.book-spread {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  justify-content: center;
+}
+
+Особенности:
+
+первая страница книги всегда одиночная
+
+далее страницы отображаются парами
+
+пользователь может перелистывать
+
+3. Редактирование прямо на странице
+
+Сейчас текст редактируется как длинный документ.
+
+Нужно позволить редактировать текст прямо внутри страниц.
+
+Каждая страница должна быть contentEditable или связана с редактором.
+
+Редактирование должно:
+
+автоматически обновлять layout
+
+сохранять formatting
+
+не ломать pagination
+
+Pipeline:
+
+Editor document
+→ HTML
+→ Paged.js layout
+→ page preview
+
+При изменении текста layout должен пересчитываться автоматически.
+
+4. Page Break UX
+
+Сейчас page break отображается как линия.
+
+Нужно сделать поведение похожим на Word + Notion.
+
+Добавить блок:
+
+/pagebreak
+
+Визуально он отображается как:
+
+──── Page Break ────
+
+Этот блок должен:
+
+создавать разрыв страницы
+
+показываться в editor
+
+быть draggable
+
+CSS:
+
+.page-break-marker {
+  border-top: 1px dashed #bbb;
+  text-align: center;
+  margin: 30px 0;
+  font-size: 12px;
+  color: #888;
+}
+5. Улучшение редактора текста
+
+Текущий редактор похож на Notion.
+
+Нужно расширить функции форматирования.
+
+Добавить toolbar с функциями:
+
+Text formatting:
+
+bold
+italic
+underline
+strikethrough
+
+Headings:
+
+H1 (chapter)
+H2
+H3
+
+Book elements:
+
+quote
+divider
+image
+footnote
+page break
+
+Alignment:
+
+left
+center
+right
+justify
+
+Lists:
+
+bullet list
+numbered list
+
+Также добавить:
+
+indentation
+
+paragraph spacing
+
+line spacing
+
+6. Книжные элементы
+
+Добавить блоки:
+
+Chapter Title
+Epigraph
+Quote
+Footnote
+
+Footnote должен:
+
+автоматически нумероваться
+
+отображаться внизу страницы
+
+7. Zoom системы
+
+Добавить zoom control:
+
+50%
+75%
+100%
+150%
+
+Он должен масштабировать preview страниц.
+
+8. Навигация по страницам
+
+Добавить панель:
+
+Page navigation:
+
+page 1 / 320
+
+Кнопки:
+
+previous page
+next page
+
+9. Экспорт PDF UX
+
+Сейчас при экспорте PDF открывается новая вкладка.
+
+Нужно изменить это поведение.
+
+Сделать modal export window.
+
+При нажатии Export PDF появляется overlay поверх страницы.
+
+Пример:
+
+Export Book
+
+Format:
+PDF
+
+Page size:
+A5
+
+Margins:
+Normal
+
+[ Export ]
+
+После генерации:
+
+Download PDF
+
+PDF должен скачиваться без открытия новой вкладки.
+
+10. Анимация перелистывания (опционально)
+
+Добавить анимацию перелистывания страниц.
+
+Пример:
+
+slide
+
+page flip
+
+11. UI улучшения
+
+Фон Layout Mode:
+
+light gray (#f3f3f3)
+
+Страницы:
+
+white
+
+Это создаёт ощущение настоящего редактора книги.
+
+12. Архитектура компонентов
+
+React components:
+
+LayoutMode
+BookPreview
+BookPage
+BookSpread
+PageBreakMarker
+LayoutToolbar
+ExportModal
+
+Итог
+
+Layout Mode должен работать как визуальный редактор книги, где пользователь:
+
+видит реальные страницы
+
+может переключаться между single page и book spread
+
+редактирует текст
+
+управляет page breaks
+
+экспортирует PDF через модальное окно
+
+Это должно ощущаться как гибрид Notion + Word + профессиональный книжный редактор.

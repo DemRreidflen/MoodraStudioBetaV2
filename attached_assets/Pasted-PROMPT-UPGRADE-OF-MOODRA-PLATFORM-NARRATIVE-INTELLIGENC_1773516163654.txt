@@ -1,0 +1,355 @@
+PROMPT: UPGRADE OF MOODRA PLATFORM — NARRATIVE INTELLIGENCE SYSTEM
+
+Goal
+Transform Moodra from a writing tool into a cognitive system for building books.
+The platform must evolve from a text editor with AI functions into an intelligent narrative environment that understands the structure, logic, and evolution of a book.
+
+Moodra must integrate a multi-agent AI architecture that operates through a meta-prompt system and interacts with existing platform modules:
+
+• Writing mode
+• Idea Board
+• Research mode
+• Book formatting / layout
+• Grammar and style correction
+
+All AI features must operate through a shared Narrative Engine and must support multilingual workflows.
+
+---
+
+SECTION 1 — CORE SYSTEM: NARRATIVE ENGINE
+
+Narrative Engine is the cognitive layer of the platform.
+
+It maintains a structured representation of the book that AI agents use to reason.
+
+Narrative Engine stores the following structured objects:
+
+Core Idea
+Primary philosophical or conceptual axis of the book.
+
+Themes
+Conceptual domains explored in the book.
+
+Narrative Structure
+Structural model of the book (argumentative, narrative arc, research, hybrid).
+
+Chapter Graph
+Graph of chapters and their logical relationships.
+
+Argument Network
+Network connecting theses, arguments, and examples.
+
+Character Graph (if fiction)
+Profiles, relationships, motivations.
+
+Timeline Graph
+Chronological structure of events.
+
+Idea Evolution Graph
+Tracks the transformation of ideas across notes, chapters, and arguments.
+
+Tone Model
+Defines stylistic parameters.
+
+Target Reader Profile
+Defines audience expectations and reading level.
+
+All AI agents must query Narrative Engine before generating responses.
+
+---
+
+SECTION 2 — MULTI-AGENT AI ARCHITECTURE
+
+The platform must implement a system of specialized reasoning agents.
+
+Each agent represents a cognitive role rather than a generic AI assistant.
+
+Agents operate through structured prompts and share a common context.
+
+Agent Layer Types:
+
+Editor Agent
+Responsible for clarity, structure, readability.
+
+Critic Agent
+Responsible for identifying weaknesses in logic or argumentation.
+
+Philosopher Agent
+Explores deeper conceptual implications.
+
+Reader Simulation Agent
+Simulates reader reactions.
+
+Story Analyst Agent
+Analyzes narrative structure and pacing.
+
+Argument Analyst Agent
+Evaluates logical strength.
+
+Consistency Agent
+Detects contradictions or character inconsistencies.
+
+Research Agent
+Supports fact validation and reference integration.
+
+Agents must be able to operate individually or in chains.
+
+Example chain reasoning:
+
+Story Analyst → identifies structural problem
+Critic Agent → explains weakness
+Editor Agent → proposes revision
+
+---
+
+SECTION 3 — AGENT THINKING TYPOLOGY
+
+Each agent must follow a specific reasoning structure.
+
+Agents must think in stages:
+
+1 Context Extraction
+Extract relevant data from Narrative Engine.
+
+2 Structural Mapping
+Understand how the analyzed element relates to the book structure.
+
+3 Cognitive Analysis
+Apply role-specific reasoning.
+
+4 Insight Generation
+Produce conclusions.
+
+5 Recommendation Layer
+Suggest improvements.
+
+Example thinking model for Critic Agent:
+
+Step 1: identify thesis
+Step 2: locate supporting arguments
+Step 3: test logical coherence
+Step 4: detect unsupported claims
+Step 5: produce critique report
+
+---
+
+SECTION 4 — META-PROMPT SYSTEM
+
+Moodra must include an internal prompt orchestration system.
+
+This system acts as a prompt kernel controlling agent behavior.
+
+The kernel must dynamically assemble prompts using structured variables.
+
+Variables include:
+
+book_type
+themes
+core_idea
+chapter_context
+target_reader
+tone_model
+argument_structure
+character_profiles
+
+Example meta-prompt structure:
+
+Role: Critic Agent
+
+Context:
+Book type
+Core idea
+Chapter text
+Argument graph
+
+Task:
+Evaluate the logical integrity of the chapter.
+
+Instructions:
+Identify weak reasoning.
+Identify unsupported statements.
+Suggest structural improvements.
+
+Output:
+Structured critique report.
+
+---
+
+SECTION 5 — READER CRITIC SYSTEM
+
+Reader Critic simulates different reader archetypes.
+
+Reader profiles include:
+
+Beginner Reader
+Expert Reader
+Skeptical Reader
+Emotion-Driven Reader
+Editorial Reader
+
+Each profile evaluates text differently.
+
+Beginner Reader
+Focuses on clarity and accessibility.
+
+Expert Reader
+Focuses on depth and intellectual rigor.
+
+Skeptical Reader
+Challenges claims and assumptions.
+
+Emotion-Driven Reader
+Evaluates emotional engagement.
+
+Editorial Reader
+Focuses on narrative flow and structure.
+
+Reader simulations must produce structured feedback.
+
+Example output:
+
+Reader Type: Skeptical Reader
+Detected Issue: Argument lacks supporting evidence.
+Recommendation: Add empirical example or citation.
+
+---
+
+SECTION 6 — IDEA BOARD LAYER SYSTEM
+
+Idea Board must support multi-layer thinking.
+
+Layer types:
+
+Idea Layer
+Conceptual nodes and abstract ideas.
+
+Argument Layer
+Theses and reasoning structures.
+
+Narrative Layer
+Events and plot developments.
+
+Character Layer
+Character arcs and relationships.
+
+Timeline Layer
+Chronological mapping of events.
+
+Users can toggle layers on or off.
+
+Connections between layers form a multi-dimensional knowledge graph.
+
+---
+
+SECTION 7 — TIMELINE SYSTEM
+
+Timeline must support multiple modes.
+
+Event Timeline
+Chronological story events.
+
+Writing Timeline
+Tracks the evolution of the book creation process.
+
+Narrative Tension Timeline
+Maps emotional intensity across chapters.
+
+The system must allow AI agents to analyze pacing and narrative rhythm.
+
+---
+
+SECTION 8 — IDEA EVOLUTION GRAPH
+
+Ideas must maintain an evolutionary history.
+
+Each idea object stores:
+
+origin
+transformations
+chapters where applied
+arguments linked to idea
+
+This allows AI to track conceptual development across the book.
+
+---
+
+SECTION 9 — MULTILINGUAL ARCHITECTURE
+
+All AI components must be language-agnostic.
+
+Narrative Engine must store semantic representations rather than language-specific strings.
+
+Agents must operate using meaning-level representations.
+
+The system must support:
+
+cross-language writing
+translation-aware editing
+multilingual idea graphs
+
+Users should be able to:
+
+write in one language
+analyze structure in another
+generate stylistic revisions across languages
+
+---
+
+SECTION 10 — WRITING INTELLIGENCE SYSTEM
+
+AI must analyze stylistic metrics.
+
+Metrics include:
+
+sentence length distribution
+argument density
+abstraction level
+repetition patterns
+narrative pacing
+
+These metrics must appear as visual diagnostics.
+
+---
+
+SECTION 11 — PLATFORM UX INTEGRATION
+
+AI must integrate with existing Moodra modules.
+
+Writing Mode
+Real-time structural analysis.
+
+Idea Board
+Conceptual graph exploration.
+
+Research Mode
+Reference and evidence integration.
+
+Narrative Engine
+Structural reasoning hub.
+
+Book Layout Mode
+Design and formatting.
+
+AI must remain invisible when not needed and appear only when relevant.
+
+---
+
+SECTION 12 — SYSTEM PRINCIPLE
+
+Moodra must not behave like a chatbot.
+
+It must function as:
+
+a cognitive architecture for building books.
+
+The AI must reason about:
+
+ideas
+structure
+arguments
+narrative rhythm
+reader perception
+
+The system must support authors in constructing meaningful works rather than simply generating text.
+
+END OF PROMPT

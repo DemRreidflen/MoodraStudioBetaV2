@@ -1,0 +1,205 @@
+PROMPT — Rewrite Pagination Decision System
+
+Current layout engine still produces inconsistent page fill and uneven bottom text levels.
+
+Pages often end at very different heights, leaving large empty areas at the bottom, even when more lines could fit. This makes the book layout visually unstable.
+
+The problem is that the pagination engine currently makes local break decisions, instead of evaluating multiple possible page layouts.
+
+This must be redesigned.
+
+1. Replace greedy pagination with layout evaluation
+
+Current behavior:
+
+while next line fits:
+    place line
+else:
+    page break
+
+This is incorrect for book layout.
+
+Pagination must instead evaluate multiple possible breakpoints.
+
+2. Introduce candidate page break range
+
+Instead of one break position, the engine must test several nearby breakpoints.
+
+Example:
+
+candidateBreakpoints = [
+currentLine,
+currentLine + 1,
+currentLine + 2,
+currentLine + 3,
+currentLine + 4
+]
+
+For each candidate breakpoint:
+
+simulate page layout
+
+calculate layout score
+
+select the best layout.
+
+3. Introduce page scoring system
+
+Each page layout must receive a score.
+
+Score penalties:
+
+unusedSpacePenalty
++ widowPenalty
++ orphanPenalty
++ uglyParagraphSplitPenalty
++ hyphenPenalty
++ bottomLinePenalty
++ unevenPageDensityPenalty
+
+Lowest score wins.
+
+4. Add strong penalty for unused space
+
+If a page leaves a large empty area at the bottom, it should receive a high penalty.
+
+Example:
+
+unusedSpacePenalty = remainingHeight * weight
+
+This forces the engine to fill pages more evenly.
+
+5. Introduce target fill ratio
+
+Book pages should normally fill almost the entire content area.
+
+Define:
+
+targetFillRatio = 0.92 – 0.97
+
+If page fill drops below this range, layout score increases.
+
+6. Prevent early paragraph break
+
+The engine must not break a page early simply because the next paragraph looks difficult.
+
+Instead it must try:
+
+reflowing the paragraph
+
+adjusting line breaks
+
+allowing controlled hyphenation
+
+moving the break a few lines later.
+
+Only if all attempts fail should the earlier break be used.
+
+7. Add paragraph rebalancing before page break
+
+Before committing a page break inside a paragraph:
+
+recompute paragraph line breaks
+try alternative hyphenation
+try alternative break positions
+
+Then recompute page score.
+
+8. Improve hyphenation quality
+
+Current hyphenation sometimes looks visually broken.
+
+Rules:
+
+hyphenation must follow dictionary-based breakpoints
+
+hyphen must always render when word splits
+
+max 3 hyphenations per page
+
+max 2 consecutive hyphenated lines.
+
+Add penalties:
+
+hyphenPenalty
+consecutiveHyphenPenalty
+pageEdgeHyphenPenalty
+
+Page-edge hyphenation should be strongly discouraged.
+
+9. Avoid weak page endings
+
+Avoid page endings where:
+
+last line is very short
+
+last line contains only one word
+
+last line contains only hyphenated fragment.
+
+Penalty example:
+
+shortLastLinePenalty
+10. Stabilize bottom rhythm
+
+For normal text pages:
+
+The engine should aim to end pages close to the preferred bottom baseline.
+
+Define:
+
+preferredBottomBaseline = last safe baseline before footer
+
+Pages that end far above this baseline receive a penalty.
+
+11. Do not stretch line spacing
+
+The engine must not artificially stretch line spacing or paragraph spacing to fill pages.
+
+Page balance must be achieved only through:
+
+line breaking
+
+paragraph balancing
+
+page break selection.
+
+12. Full layout pipeline
+
+The new pipeline should be:
+
+text
+→ paragraph layout optimization
+→ generate line boxes
+→ generate candidate page breaks
+→ simulate page layouts
+→ compute layout scores
+→ select optimal page
+→ render page
+Expected result
+
+After this change:
+
+pages will end at similar vertical levels
+
+empty space at page bottoms will be minimized
+
+page density will look consistent
+
+hyphenation will look more natural
+
+paragraph breaks will feel smoother
+
+overall book layout will resemble professional typesetting.
+
+Важная вещь
+
+Сейчас у тебя движок уже почти на уровне InDesign, но ему не хватает одной вещи:
+
+👉 page scoring system
+
+Без неё любая верстка всегда будет:
+
+иногда слишком пустой
+
+иногда слишком плотной.

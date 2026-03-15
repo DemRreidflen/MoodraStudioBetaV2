@@ -1,0 +1,337 @@
+Создай новый раздел веб-приложения под названием Book Layout Mode для платформы написания книг.
+
+Важно:
+в приложении уже существует режим Writing, где используется редактор текста в стиле Notion. Он сохраняет документ как structured HTML или JSON (blocks) со всей разметкой:
+
+headings (h1, h2, h3)
+
+paragraphs
+
+quotes
+
+lists
+
+images
+
+bold / italic
+
+inline formatting
+
+Новый режим Layout Mode должен брать этот текст и превращать его в готовую книжную верстку с предпросмотром страниц и экспортом PDF.
+
+Главная идея системы
+
+Writing Mode → Layout Engine → Book Pages → PDF Export
+
+PDF не редактируется напрямую.
+Он генерируется из текста документа.
+
+Новый раздел интерфейса
+
+Добавь новый раздел в навигацию приложения:
+
+Writing
+Structure
+Layout
+Export
+
+При открытии Layout Mode интерфейс делится на три зоны.
+
+Интерфейс Layout Mode
+
+Левая панель — Book Structure
+
+Показывает структуру документа:
+
+главы (h1)
+
+подглавы (h2)
+
+разделы
+
+Функции:
+
+навигация по главам
+
+быстрый переход к странице
+
+отображение номера страницы
+
+кнопка добавления page break
+
+Центральная область — Book Page Preview
+
+Это основной экран.
+
+Он показывает реальные страницы книги, как в печатном макете.
+
+Каждая страница должна иметь:
+
+размер страницы (A5 по умолчанию)
+
+поля
+
+номера страниц
+
+типографику
+
+автоматические переносы текста
+
+Страницы должны:
+
+автоматически формироваться из текста
+
+обновляться при изменении настроек
+
+поддерживать масштаб (zoom)
+
+поддерживать перелистывание
+
+Режимы просмотра:
+
+Single Page
+Book View (две страницы рядом)
+
+Правая панель — Layout Settings
+
+Настройки верстки книги.
+
+Раздел Page Settings:
+
+page size
+A5 (default)
+A4
+B5
+
+margins:
+
+top
+bottom
+left
+right
+
+Раздел Typography:
+
+font family
+font size
+line height
+paragraph spacing
+text alignment
+
+Раздел Headings:
+
+style for H1 (chapter)
+style for H2
+style for H3
+
+Опции:
+
+page break before chapter
+
+chapter spacing
+
+Раздел Header & Footer:
+
+включить колонтитулы
+
+опции:
+
+header left
+header right
+
+footer:
+
+page number
+book title
+author name
+
+Движок верстки
+
+Используй библиотеку Paged.js.
+
+Она должна:
+
+разбивать HTML на страницы
+
+учитывать CSS paged media
+
+автоматически нумеровать страницы
+
+корректно обрабатывать page breaks
+
+Pipeline:
+
+Editor document → HTML → Paged.js → Pages preview
+
+Поддержка page breaks
+
+Добавь специальный блок:
+
+/pagebreak
+
+Он вставляет HTML элемент:
+
+<div class="page-break"></div>
+
+CSS:
+
+.page-break {
+page-break-after: always;
+}
+
+Автоматическое оглавление
+
+Система должна уметь генерировать Table of Contents.
+
+Правила:
+
+h1 = chapter
+h2 = section
+
+TOC должен:
+
+показывать название главы
+
+показывать номер страницы
+
+автоматически обновляться
+
+Типографика книги
+
+CSS должен поддерживать книжную типографику:
+
+переносы слов
+
+правильные отступы абзацев
+
+красивые заголовки
+
+page breaks перед главами
+
+Пример:
+
+@page {
+size: A5;
+margin: 20mm;
+}
+
+h1 {
+page-break-before: always;
+font-size: 28px;
+}
+
+p {
+text-indent: 1.2em;
+line-height: 1.6;
+}
+
+Предпросмотр страниц
+
+Страницы должны выглядеть как реальные листы книги.
+
+Каждая страница:
+
+white background
+shadow
+page number
+
+пример структуры:
+
+<div class="book-page"> <div class="page-content"> TEXT </div> <div class="page-footer"> 12 </div> </div>
+Экспорт PDF
+
+Добавь кнопку:
+
+Export Book
+
+Она должна:
+
+взять HTML книги
+
+применить paged layout
+
+сгенерировать PDF
+
+Используй Puppeteer на сервере.
+
+Pipeline:
+
+HTML book layout
+→ headless Chrome render
+→ PDF generation
+
+PDF должен:
+
+сохранять всю верстку
+
+сохранять страницы
+
+сохранять номера страниц
+
+сохранять оглавление
+
+Экспорт EPUB (опционально)
+
+Если возможно, добавь экспорт EPUB.
+
+Live Sync с редактором
+
+Layout Mode должен:
+
+автоматически брать последнюю версию текста из Writing Mode
+
+сохранять форматирование
+
+поддерживать изображения
+
+поддерживать цитаты
+
+поддерживать списки
+
+UX
+
+Добавь верхнюю панель:
+
+Preview mode
+Zoom
+Page navigation
+
+Кнопки:
+
+Single Page
+Book View
+Export PDF
+
+Архитектура компонентов
+
+React components:
+
+LayoutPage
+BookPreview
+BookPage
+LayoutSettings
+ChapterNavigator
+
+Минимальная цель MVP
+
+Реализовать:
+
+layout preview
+
+page generation
+
+typography settings
+
+page breaks
+
+PDF export
+
+Итог
+
+Layout Mode должен превратить документ из редактора в полностью сверстанную книгу, которую можно:
+
+просматривать постранично
+
+настраивать типографику
+
+экспортировать как готовый PDF.

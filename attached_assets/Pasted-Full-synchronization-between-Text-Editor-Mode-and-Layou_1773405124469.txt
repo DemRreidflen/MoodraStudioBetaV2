@@ -1,0 +1,310 @@
+Full synchronization between Text Editor Mode and Layout Mode + advanced typography + correct PDF export
+
+В приложении есть два режима работы:
+
+Text Editor Mode
+— основной режим написания книги (Notion-style редактор)
+
+Layout Mode
+— режим визуальной верстки книги с отображением страниц и возможностью экспортировать PDF.
+
+Нужно исправить архитектуру системы так, чтобы оба режима работали как единая система, а не как два отдельных интерфейса.
+
+1. Полная синхронизация Editor ↔ Layout
+
+Сейчас изменения в редакторе текста и в режиме верстки работают частично независимо.
+
+Нужно реализовать двустороннюю синхронизацию (bidirectional sync).
+
+Правило системы:
+
+Любое изменение в Text Editor Mode автоматически отображается в Layout Mode.
+Любое изменение в Layout Mode автоматически отражается в Text Editor Mode.
+
+Pipeline:
+
+Editor Document State
+↓
+Shared Document Model
+↓
+Layout Engine
+↓
+Page Rendering
+
+То есть должен существовать единый источник данных документа.
+
+Пример:
+
+documentState
+  blocks
+  typography
+  spacing
+  pageSettings
+
+Layout Mode не должен создавать собственную версию текста.
+Он должен использовать тот же document state, что и редактор.
+
+2. Полное совпадение параметров текста
+
+Типографические параметры должны быть идентичны в обоих режимах.
+
+Если в редакторе текста установлен:
+
+font-size: 9
+
+то:
+
+в Layout Mode текст отображается точно с тем же размером
+
+при экспорте PDF используется тот же размер
+
+То же касается:
+
+шрифта
+
+line height
+
+paragraph spacing
+
+indentation
+
+alignment
+
+Нужно создать единый typography configuration.
+
+Пример структуры:
+
+typographySettings
+  fontFamily
+  fontSize
+  lineHeight
+  paragraphSpacing
+  firstLineIndent
+  textAlign
+3. Исправление PDF Export
+
+Сейчас PDF экспорт:
+
+игнорирует часть форматирования
+
+экспортирует документ всегда в одном формате
+
+не использует настройки Layout Mode
+
+Это неправильное поведение.
+
+PDF export должен использовать:
+
+layoutSettings
+  pageSize
+  margins
+  typography
+  headers
+  footers
+
+Pipeline должен выглядеть так:
+
+Document state
+↓
+Layout settings
+↓
+Paged layout render
+↓
+HTML book
+↓
+Puppeteer
+↓
+PDF
+
+PDF должен полностью совпадать с Layout Preview.
+
+4. Поддержка разных форматов страниц
+
+В Layout Settings пользователь может выбрать:
+
+A5
+A4
+B5
+
+PDF экспорт должен строго использовать выбранный формат страницы.
+
+CSS paged media:
+
+@page {
+  size: A5;
+  margin: 20mm;
+}
+5. Разделение typography controls
+
+Сейчас есть баг:
+
+изменение font size также меняет line spacing.
+
+Это неправильно.
+
+Эти параметры должны быть независимыми.
+
+Typography controls:
+
+font family
+font size
+line height
+paragraph spacing
+first line indent
+letter spacing
+
+Каждый параметр должен изменяться отдельно.
+
+6. Глобальный шрифт книги
+
+Если пользователь выбирает шрифт на странице Text Editor Mode, этот шрифт применяется:
+
+ко всему документу
+
+к Layout Mode
+
+к PDF export
+
+Pipeline:
+
+Font selector
+↓
+update typographySettings
+↓
+update editor
+↓
+update layout preview
+↓
+update export
+7. Улучшение Layout Mode
+
+Layout Mode должен давать больше контроля над визуальной структурой книги.
+
+Добавить новые настройки:
+
+Page margins
+top
+bottom
+left
+right
+Paragraph settings
+first line indent
+paragraph spacing
+line height
+Typography
+font family
+font size
+letter spacing
+8. Графические элементы главы
+
+Добавить возможность добавлять визуальные элементы в начало главы.
+
+Например:
+
+иконка главы
+
+декоративный разделитель
+
+символ
+
+Каждая глава (H1) может иметь:
+
+chapter icon
+chapter separator
+
+Пользователь может:
+
+загрузить SVG или PNG
+
+выбрать позицию
+
+настроить отступ
+
+Пример:
+
+[ICON]
+
+Chapter Title
+9. Дополнительные элементы книги
+
+Добавить поддержку:
+
+epigraph
+chapter subtitle
+divider
+quote
+footnote
+
+Footnote должен:
+
+автоматически нумероваться
+
+отображаться внизу страницы
+
+корректно экспортироваться в PDF.
+
+10. Расширенные настройки текста
+
+В редактор текста добавить дополнительные функции:
+
+Typography
+small caps
+letter spacing
+text transform
+drop caps
+
+Drop cap (большая первая буква главы).
+
+11. Улучшение UX редактирования
+
+Text Editor Mode — основной режим написания книги.
+
+Layout Mode — режим визуальной проверки.
+
+Поэтому:
+
+Text Editor должен иметь максимально удобные инструменты работы с текстом.
+
+Добавить:
+
+floating formatting toolbar
+
+быстрые команды через /
+
+быстрые стили главы
+
+page break insertion
+
+12. Page Break
+
+Page Break должен:
+
+работать одинаково в обоих режимах
+
+отображаться в редакторе
+
+влиять на layout
+
+13. Основная цель системы
+
+После изменений система должна работать так:
+
+Автор пишет книгу в Text Editor Mode.
+
+Layout Mode показывает точную визуализацию будущей книги.
+
+PDF экспортирует точно тот же результат.
+
+Итог
+
+После реализации система должна:
+
+иметь единый document state
+
+синхронизировать Editor и Layout
+
+экспортировать PDF точно как preview
+
+поддерживать полную книжную типографику
+
+давать гибкий контроль над оформлением книги.
