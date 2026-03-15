@@ -612,45 +612,6 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
 
-          {/* Layout Presets */}
-          <SecHead label={lp.layoutPresets || "Layout Styles"} open={open.presets} toggle={() => tog("presets")} />
-          {open.presets && (
-            <div className="pb-3 border-b border-border/30">
-              <div className="grid grid-cols-2 gap-1.5">
-                {(["classic", "vibe", "mono", "modern"] as LayoutPreset[]).map(preset => {
-                  const labels: Record<LayoutPreset, string> = {
-                    classic: lp.presetClassic || "Classic",
-                    vibe: lp.presetVibe || "Vibe",
-                    mono: lp.presetMono || "Mono",
-                    modern: lp.presetModern || "Modern",
-                  };
-                  const icons: Record<LayoutPreset, string> = {
-                    classic: "📖",
-                    vibe: "✨",
-                    mono: "⌨️",
-                    modern: "▣",
-                  };
-                  const isActive = settings.layoutPreset === preset;
-                  return (
-                    <button
-                      key={preset}
-                      onClick={() => update({ layoutPreset: preset, ...LAYOUT_PRESETS[preset] })}
-                      className={cn(
-                        "flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-xs font-medium transition-all border",
-                        isActive
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-secondary text-muted-foreground border-transparent hover:border-border/60"
-                      )}
-                    >
-                      <span className="text-sm">{icons[preset]}</span>
-                      <span>{labels[preset]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Page */}
           <SecHead label={lp.pageSettings} open={open.page} toggle={() => tog("page")} />
           {open.page && (
@@ -732,31 +693,6 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
           <SecHead label={lp.headerFooter} open={open.hf} toggle={() => tog("hf")} />
           {open.hf && (
             <div className="space-y-2 pb-3 border-b border-border/30">
-              <Row label={lp.pageHeader}>
-                <Toggle on={settings.headerEnabled} onToggle={() => update({ headerEnabled: !settings.headerEnabled })} />
-              </Row>
-              {settings.headerEnabled && (
-                <>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground mb-1">{lp.leftSide}</p>
-                    <input
-                      value={settings.headerLeft}
-                      onChange={e => update({ headerLeft: e.target.value })}
-                      placeholder={lp.leftPlaceholder}
-                      className="w-full h-7 rounded-lg border border-border/60 bg-secondary text-xs px-2 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-muted-foreground mb-1">{lp.rightSide}</p>
-                    <input
-                      value={settings.headerRight}
-                      onChange={e => update({ headerRight: e.target.value })}
-                      placeholder={lp.rightPlaceholder}
-                      className="w-full h-7 rounded-lg border border-border/60 bg-secondary text-xs px-2 outline-none"
-                    />
-                  </div>
-                </>
-              )}
               <Row label={lp.pageNumber}>
                 <Toggle on={settings.footerPageNumber} onToggle={() => update({ footerPageNumber: !settings.footerPageNumber })} />
               </Row>
@@ -767,20 +703,21 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
                 <>
                   <Row label={lp.pageNumberAlign || "Position"}>
                     <div className="flex gap-1">
-                      {(["left", "center", "right"] as const).map((align) => {
-                        const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight;
+                      {(["left", "center", "right", "mirror"] as const).map((align) => {
+                        const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : align === "right" ? AlignRight : null;
                         return (
                           <button
                             key={align}
                             onClick={() => update({ footerAlignment: align })}
                             className={cn(
-                              "w-7 h-7 rounded-lg flex items-center justify-center transition-colors",
+                              "h-7 rounded-lg flex items-center justify-center transition-colors",
+                              align === "mirror" ? "px-1.5 text-[9px] font-bold" : "w-7",
                               settings.footerAlignment === align
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-secondary text-muted-foreground"
                             )}
                           >
-                            <Icon className="h-3 w-3" />
+                            {Icon ? <Icon className="h-3 w-3" /> : <Columns2 className="h-3 w-3" />}
                           </button>
                         );
                       })}
@@ -800,17 +737,6 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
               <Row label={lp.tocLabel || "Table of Contents"}>
                 <Toggle on={frontMatter.tocEnabled} onToggle={() => updateFm({ tocEnabled: !frontMatter.tocEnabled })} />
               </Row>
-
-              {/* Book Annotation — shared source */}
-              <div className="pt-1 border-t border-border/20">
-                <p className="text-[10px] text-muted-foreground mb-0.5">{lp.fmBookAnnotation || "Book annotation (shared)"}</p>
-                <textarea
-                  value={book.description || ""}
-                  onChange={e => updateBookMutation.mutate({ description: e.target.value })}
-                  rows={3}
-                  placeholder={lp.fmAnnotationPlaceholder || "Brief description shown on title/copyright pages…"}
-                  className="w-full rounded-lg border border-border/60 bg-secondary text-xs px-2 py-1.5 outline-none resize-none" />
-              </div>
 
               {/* Title Page */}
               <div className="pt-1 border-t border-border/20">
@@ -1008,6 +934,8 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
                         })}
                       </div>
                     </Row>
+                    <Row label={lp.fontSize || "Font size"}><NumInput value={frontMatter.copyrightPage.fontSize ?? 9} onChange={v => updateCopyrightPage({ fontSize: v })} min={7} max={14} step={0.5} unit="pt" /></Row>
+                    <Row label={lp.lineHeight || "Line height"}><NumInput value={frontMatter.copyrightPage.lineHeight ?? 1.5} onChange={v => updateCopyrightPage({ lineHeight: v })} min={1} max={3} step={0.1} /></Row>
                   </div>
                 )}
               </div>

@@ -21,7 +21,7 @@ export interface BookTypographySettings {
   headerRight: string;
   footerPageNumber: boolean;
   footerBookTitle: boolean;
-  footerAlignment: "left" | "center" | "right";
+  footerAlignment: "left" | "center" | "right" | "mirror";
   textDensity: number;
   layoutPreset: "classic" | "vibe" | "mono" | "modern";
 }

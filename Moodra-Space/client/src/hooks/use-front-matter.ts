@@ -37,6 +37,8 @@ export interface CopyrightPageSettings {
   copyrightHolder: string;
   useBookAuthor: boolean;
   alignment: "left" | "center" | "right";
+  fontSize: number;
+  lineHeight: number;
 }
 
 export interface DedicationPageSettings {
@@ -133,6 +135,8 @@ export const DEFAULT_FRONT_MATTER: FrontMatterSettings = {
     copyrightHolder: "",
     useBookAuthor: true,
     alignment: "left",
+    fontSize: 9,
+    lineHeight: 1.5,
   },
   dedicationPage: {
     enabled: false,

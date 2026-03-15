@@ -610,7 +610,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Reconstructs the creative model of an author from source material.
   app.post("/api/role-models/:id/deep-analyze", isAuthenticated, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
-    const { rawSourceText, lang } = req.body;
+    const { rawSourceText, lang, customInstruction } = req.body;
     if (!rawSourceText?.trim()) return res.status(400).json({ error: "rawSourceText is required" });
 
     const langInstruction =
@@ -636,7 +636,7 @@ Return ONLY a valid JSON object with exactly these 9 string fields (each 3–6 s
   "emotionalDynamics": "Emotional temperature, what emotions are invoked, how affect is embedded structurally.",
   "reusableParameters": "3–5 concrete reusable parameters a writer could adopt from this author: e.g., technique, structural device, tonal quality.",
   "styleInstruction": "A single, dense, actionable system instruction (2–4 sentences) for an AI writing assistant to imitate this author's style and thinking."
-}`;
+}${customInstruction ? `\n\nAdditional focus instruction from the user: ${customInstruction}` : ""}`;
 
     const userPrompt = `Analyze the following text and return the JSON object:\n\n---\n${rawSourceText.slice(0, 6000)}\n---`;
 

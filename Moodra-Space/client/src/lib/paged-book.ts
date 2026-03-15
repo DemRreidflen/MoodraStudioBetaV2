@@ -198,10 +198,15 @@ function settingsToCss(input: PagedBookInput): string {
   // Margin positions for @page margin boxes
   const footerMarginBox = (() => {
     if (!hasFooter) return "";
+    if (footerAlign === "mirror") return "";
     const box = footerAlign === "left" ? "@bottom-left" :
                 footerAlign === "right" ? "@bottom-right" : "@bottom-center";
     return `${box} { content: ${footerContent}; font-family: ${s.fontFamily}; font-size: 8pt; color: #999; }`;
   })();
+
+  const mirrorFooterRules = hasFooter && footerAlign === "mirror" ? `
+@page :left  { @bottom-left  { content: ${footerContent}; font-family: ${s.fontFamily}; font-size: 8pt; color: #999; } }
+@page :right { @bottom-right { content: ${footerContent}; font-family: ${s.fontFamily}; font-size: 8pt; color: #999; } }` : "";
 
   const headerMarginBoxes = !hasHeader ? "" : `
     @top-left  { content: ${headerLeftContent};  font-family: ${s.fontFamily}; font-size: 7pt; color: #bbb; }
@@ -236,6 +241,8 @@ function settingsToCss(input: PagedBookInput): string {
   @top-right  { content: none; }
   ${footerMarginBox}
 }
+
+${mirrorFooterRules}
 
 /* ── Base typography ────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -362,13 +369,6 @@ hr.bdiv {
   text-align: center;
   padding-bottom: ${s.lineHeight * 2}em;
 }
-.ch-label {
-  font-size: ${s.fontSize - 1}pt;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #aaa;
-  margin-bottom: 0.4em;
-}
 .ch-title {
   font-family: ${s.fontFamily};
   font-size: ${s.h1Size}pt;
@@ -379,13 +379,7 @@ hr.bdiv {
   color: #1a1007;
   margin-bottom: 0.3em;
 }
-.ch-ornament {
-  display: flex; justify-content: center; gap: 6px; margin-top: 0.6em;
-}
-.ch-ornament span {
-  width: 4px; height: 4px; border-radius: 50%;
-  background: #d4c5b0;
-}
+
 
 /* First paragraph of a chapter or after any heading has no indent */
 .ch-body > p:first-child { text-indent: 0; }
@@ -423,9 +417,9 @@ hr.bdiv {
 
 /* Copyright page */
 .copyright-page {
-  font-size: ${s.fontSize - 1}pt;
+  font-size: var(--cp-fs, ${s.fontSize - 1}pt);
   color: #555;
-  line-height: 1.7;
+  line-height: var(--cp-lh, 1.7);
   padding: 4% 0;
 }
 .copyright-align-left { align-items: flex-start; text-align: left; }
@@ -667,8 +661,10 @@ function buildFrontMatter(
   if (fm.copyrightPage?.enabled) {
     const cp = fm.copyrightPage;
     const align = cp.alignment ?? "left";
+    const cpFs = cp.fontSize ?? 9;
+    const cpLh = cp.lineHeight ?? 1.5;
     parts.push(`
-<div class="front-matter-page copyright-page copyright-align-${align}">
+<div class="front-matter-page copyright-page copyright-align-${align}" style="--cp-fs:${cpFs}pt;--cp-lh:${cpLh}">
   ${cp.rights ? `<div class="cp-rights">${esc(cp.rights)}</div>` : ""}
   <div class="cp-spacer"></div>
   <div class="cp-bottom">
@@ -765,9 +761,7 @@ function buildChapters(
     return `
 <section class="chapter" id="chapter-${ci}">
   <div class="ch-header">
-    <div class="ch-label">${lp.chapterLabel || "Chapter"} ${ci + 1}</div>
     <h1 class="ch-title">${softHyphenateText(esc(ch.title), lang)}</h1>
-    <div class="ch-ornament"><span></span><span></span><span></span></div>
   </div>
   <div class="ch-body">
     ${blocksHtml || '<p>—</p>'}

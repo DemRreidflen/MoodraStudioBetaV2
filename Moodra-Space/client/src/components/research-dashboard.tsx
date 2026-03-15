@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { BlockEditor, Block, blocksToPlainText } from "@/components/block-editor";
 import { RoleModelsTab } from "@/components/role-models-tab";
+import { AiPanel } from "@/components/ai-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,159 @@ const ROLE_MODEL_ANALYSIS_SECTIONS = [
   { key: "perspectiveVoice",      label: "Perspective & Voice",    icon: Eye,         color: "#0EA5E9" },
   { key: "thematicPatterns",      label: "Thematic Patterns",      icon: AlignLeft,   color: "#84CC16" },
 ] as const;
+
+// ─── i18n ─────────────────────────────────────────────────────────────────────
+const RESEARCH_I18N = {
+  ru: {
+    analysisDone: "Анализ завершён", newRoleModel: "Новая ролевая модель",
+    authorNameLabel: "Имя автора *", authorNamePlaceholder: "Например: Умберто Эко, Стивен Пинкер…",
+    sourceLabel: "Источник (книга / статья)", sourcePlaceholder: "Название произведения для анализа…",
+    fileLabel: "Файл для анализа (EPUB / FB2 / TXT)", fileRemove: "Убрать",
+    fileDrop: "Перетащите файл или нажмите для выбора", fileFormats: "EPUB, FB2, TXT — до 30 MB",
+    fileError: "Поддерживаются: EPUB, FB2, TXT", extractError: "Не удалось извлечь текст из файла",
+    customInstrLabel: "Особые указания для анализа",
+    customInstrPlaceholder: "Например: сосредоточься на структуре аргументации, игнорируй стилистику…",
+    extractingText: "Извлекаю текст из файла…", analyzingText: "Глубокий анализ стиля…",
+    analyzingDims: (a: string) => `ИИ изучает ${a} по 11 измерениям`,
+    modelCreated: "Ролевая модель создана", modelCreatedDesc: (a: string) => `Анализ ${a} доступен в разделе Ролевые модели`,
+    styleLabel: "Стиль", conceptLabel: "Концептуальные тенденции",
+    cancelBtn: "Отмена", closeBtn: "Закрыть", analyzeBtn: "Анализировать",
+    roleModelsTitle: "Ролевые Модели", roleModelsDesc: "Изучите стиль авторов-ориентиров — нажмите на карточку для полного анализа",
+    addBtn: "Добавить", addRoleModel: "Добавить ролевую модель", noRoleModels: "Добавьте автора-ориентира для анализа стиля",
+    notAnalyzed: "Не проанализирован", isAnalyzed: "Проанализирован", openCard: "Открыть →",
+    analyzeShort: "Анализ", analyzeDone: "Анализ завершён", analyzeError: "Ошибка анализа", aiError: "Ошибка AI",
+    notAnalyzedDesc: "Анализ ещё не проведён. Запустите глубокий анализ чтобы получить полный стилистический профиль.",
+    runAnalysis: "Запустить анализ", stylePrompt: "ИИ-промпт стиля", sourceText: "Исходный текст",
+    draftsTitle: "Черновики", draftsDesc: "Пишите черновики свободно — без вёрстки. Готовый текст переносится в книгу одной кнопкой",
+    newDraft: "Новый", createDraft: "Создать черновик", noDrafts: "Создайте первый черновик для свободного письма",
+    draftDeleted: "Черновик удалён",
+    draftsBack: "Черновики", titlePlaceholder: "Название черновика…",
+    words: (n: number) => `${n} сл.`, wordsTotal: (n: number) => `${n} слов`,
+    lessThanMin: "< 1 мин", minLabel: "мин", reading: "чтения",
+    newDraftTitle: "Новый черновик",
+    noChapter: "Без главы", saveBtn: "Сохранить", toBookBtn: "В книгу",
+    aiTipBtn: "Совет ИИ", aiPanelBtn: "ИИ",
+    moveToBook: "Перенести в книгу", moveDesc: "Текст черновика станет частью основного редактора",
+    newChapterOpt: "Создать новую главу", newChapterDesc: "Черновик станет новой главой в редакторе",
+    appendOpt: "Добавить в существующую главу", appendDesc: "Текст добавляется в конец выбранной главы",
+    selectChapter: "Выберите главу…", moveBtn: "Перенести", movingBtn: "Переносим…",
+    moveSuccessNew: "Создана новая глава в редакторе", moveSuccessAppend: "Текст добавлен в главу", moveError: "Ошибка переноса",
+    linkChapter: "Привязать главу",
+    moreDrafts: (n: number) => `Ещё ${n} черновиков…`,
+  },
+  en: {
+    analysisDone: "Analysis complete", newRoleModel: "New Role Model",
+    authorNameLabel: "Author name *", authorNamePlaceholder: "e.g. Umberto Eco, Steven Pinker…",
+    sourceLabel: "Source (book / article)", sourcePlaceholder: "Title of the work to analyze…",
+    fileLabel: "File to analyze (EPUB / FB2 / TXT)", fileRemove: "Remove",
+    fileDrop: "Drop a file here or click to choose", fileFormats: "EPUB, FB2, TXT — up to 30 MB",
+    fileError: "Supported: EPUB, FB2, TXT", extractError: "Failed to extract text from file",
+    customInstrLabel: "Custom analysis instructions",
+    customInstrPlaceholder: "e.g. focus on argumentation structure, ignore stylistics…",
+    extractingText: "Extracting text from file…", analyzingText: "Deep style analysis…",
+    analyzingDims: (a: string) => `AI is studying ${a} across 11 dimensions`,
+    modelCreated: "Role model created", modelCreatedDesc: (a: string) => `Analysis of ${a} is available in Role Models`,
+    styleLabel: "Style", conceptLabel: "Conceptual Tendencies",
+    cancelBtn: "Cancel", closeBtn: "Close", analyzeBtn: "Analyze",
+    roleModelsTitle: "Role Models", roleModelsDesc: "Study the style of reference authors — click a card for full analysis",
+    addBtn: "Add", addRoleModel: "Add role model", noRoleModels: "Add a reference author for style analysis",
+    notAnalyzed: "Not analyzed", isAnalyzed: "Analyzed", openCard: "Open →",
+    analyzeShort: "Analyze", analyzeDone: "Analysis complete", analyzeError: "Analysis error", aiError: "AI error",
+    notAnalyzedDesc: "Analysis not yet performed. Run deep analysis to get a full stylistic profile.",
+    runAnalysis: "Run analysis", stylePrompt: "AI style prompt", sourceText: "Source text",
+    draftsTitle: "Drafts", draftsDesc: "Write drafts freely — without layout. Move finished text to the book in one click",
+    newDraft: "New", createDraft: "Create draft", noDrafts: "Create your first draft for free writing",
+    draftDeleted: "Draft deleted",
+    draftsBack: "Drafts", titlePlaceholder: "Draft title…",
+    words: (n: number) => `${n} w.`, wordsTotal: (n: number) => `${n} words`,
+    lessThanMin: "< 1 min", minLabel: "min", reading: "read",
+    newDraftTitle: "New draft",
+    noChapter: "No chapter", saveBtn: "Save", toBookBtn: "To book",
+    aiTipBtn: "AI tip", aiPanelBtn: "AI",
+    moveToBook: "Move to book", moveDesc: "The draft text will become part of the main editor",
+    newChapterOpt: "Create new chapter", newChapterDesc: "Draft will become a new chapter in the editor",
+    appendOpt: "Append to existing chapter", appendDesc: "Text is added to the end of the selected chapter",
+    selectChapter: "Select chapter…", moveBtn: "Move", movingBtn: "Moving…",
+    moveSuccessNew: "New chapter created in editor", moveSuccessAppend: "Text added to chapter", moveError: "Move error",
+    linkChapter: "Link chapter",
+    moreDrafts: (n: number) => `${n} more drafts…`,
+  },
+  ua: {
+    analysisDone: "Аналіз завершено", newRoleModel: "Нова рольова модель",
+    authorNameLabel: "Ім'я автора *", authorNamePlaceholder: "Наприклад: Умберто Еко, Стівен Пінкер…",
+    sourceLabel: "Джерело (книга / стаття)", sourcePlaceholder: "Назва твору для аналізу…",
+    fileLabel: "Файл для аналізу (EPUB / FB2 / TXT)", fileRemove: "Прибрати",
+    fileDrop: "Перетягніть файл або натисніть для вибору", fileFormats: "EPUB, FB2, TXT — до 30 МБ",
+    fileError: "Підтримуються: EPUB, FB2, TXT", extractError: "Не вдалося витягти текст з файлу",
+    customInstrLabel: "Особливі вказівки для аналізу",
+    customInstrPlaceholder: "Наприклад: зосередься на структурі аргументації…",
+    extractingText: "Витягую текст з файлу…", analyzingText: "Глибокий аналіз стилю…",
+    analyzingDims: (a: string) => `ШІ вивчає ${a} за 11 вимірами`,
+    modelCreated: "Рольова модель створена", modelCreatedDesc: (a: string) => `Аналіз ${a} доступний у розділі Рольові моделі`,
+    styleLabel: "Стиль", conceptLabel: "Концептуальні тенденції",
+    cancelBtn: "Скасувати", closeBtn: "Закрити", analyzeBtn: "Аналізувати",
+    roleModelsTitle: "Рольові Моделі", roleModelsDesc: "Вивчіть стиль авторів-орієнтирів — натисніть на картку для повного аналізу",
+    addBtn: "Додати", addRoleModel: "Додати рольову модель", noRoleModels: "Додайте автора-орієнтир для аналізу стилю",
+    notAnalyzed: "Не проаналізований", isAnalyzed: "Проаналізований", openCard: "Відкрити →",
+    analyzeShort: "Аналіз", analyzeDone: "Аналіз завершено", analyzeError: "Помилка аналізу", aiError: "Помилка ШІ",
+    notAnalyzedDesc: "Аналіз ще не проведений. Запустіть глибокий аналіз для повного стилістичного профілю.",
+    runAnalysis: "Запустити аналіз", stylePrompt: "ШІ-промпт стилю", sourceText: "Вихідний текст",
+    draftsTitle: "Чернетки", draftsDesc: "Пишіть чернетки вільно — без верстки. Готовий текст переноситься в книгу одним натисканням",
+    newDraft: "Нова", createDraft: "Створити чернетку", noDrafts: "Створіть першу чернетку для вільного письма",
+    draftDeleted: "Чернетку видалено",
+    draftsBack: "Чернетки", titlePlaceholder: "Назва чернетки…",
+    words: (n: number) => `${n} сл.`, wordsTotal: (n: number) => `${n} слів`,
+    lessThanMin: "< 1 хв", minLabel: "хв", reading: "читання",
+    newDraftTitle: "Нова чернетка",
+    noChapter: "Без розділу", saveBtn: "Зберегти", toBookBtn: "До книги",
+    aiTipBtn: "Порада ШІ", aiPanelBtn: "ШІ",
+    moveToBook: "Перенести в книгу", moveDesc: "Текст чернетки стане частиною основного редактора",
+    newChapterOpt: "Створити новий розділ", newChapterDesc: "Чернетка стане новим розділом у редакторі",
+    appendOpt: "Додати до існуючого розділу", appendDesc: "Текст додається в кінець обраного розділу",
+    selectChapter: "Оберіть розділ…", moveBtn: "Перенести", movingBtn: "Переносимо…",
+    moveSuccessNew: "Новий розділ створено в редакторі", moveSuccessAppend: "Текст додано до розділу", moveError: "Помилка переносу",
+    linkChapter: "Прив'язати розділ",
+    moreDrafts: (n: number) => `Ще ${n} чернеток…`,
+  },
+  de: {
+    analysisDone: "Analyse abgeschlossen", newRoleModel: "Neues Rollenmodell",
+    authorNameLabel: "Autorenname *", authorNamePlaceholder: "z.B. Umberto Eco, Steven Pinker…",
+    sourceLabel: "Quelle (Buch / Artikel)", sourcePlaceholder: "Titel des zu analysierenden Werks…",
+    fileLabel: "Datei zur Analyse (EPUB / FB2 / TXT)", fileRemove: "Entfernen",
+    fileDrop: "Datei hierher ziehen oder klicken", fileFormats: "EPUB, FB2, TXT — bis 30 MB",
+    fileError: "Unterstützt: EPUB, FB2, TXT", extractError: "Text konnte nicht extrahiert werden",
+    customInstrLabel: "Besondere Analyseanweisungen",
+    customInstrPlaceholder: "z.B. Fokus auf Argumentationsstruktur…",
+    extractingText: "Text wird extrahiert…", analyzingText: "Tiefenanalyse des Stils…",
+    analyzingDims: (a: string) => `KI analysiert ${a} in 11 Dimensionen`,
+    modelCreated: "Rollenmodell erstellt", modelCreatedDesc: (a: string) => `Analyse von ${a} in Rollenmodelle verfügbar`,
+    styleLabel: "Stil", conceptLabel: "Konzeptionelle Tendenzen",
+    cancelBtn: "Abbrechen", closeBtn: "Schließen", analyzeBtn: "Analysieren",
+    roleModelsTitle: "Rollenmodelle", roleModelsDesc: "Untersuchen Sie den Stil von Referenzautoren — klicken für vollständige Analyse",
+    addBtn: "Hinzufügen", addRoleModel: "Rollenmodell hinzufügen", noRoleModels: "Referenzautor für Stilanalyse hinzufügen",
+    notAnalyzed: "Nicht analysiert", isAnalyzed: "Analysiert", openCard: "Öffnen →",
+    analyzeShort: "Analyse", analyzeDone: "Analyse abgeschlossen", analyzeError: "Analysefehler", aiError: "KI-Fehler",
+    notAnalyzedDesc: "Analyse noch nicht durchgeführt. Tiefenanalyse starten für vollständiges Stilprofil.",
+    runAnalysis: "Analyse starten", stylePrompt: "KI-Stilprompt", sourceText: "Quelltext",
+    draftsTitle: "Entwürfe", draftsDesc: "Schreiben Sie Entwürfe frei — ohne Layout. Per Klick in das Buch übertragen",
+    newDraft: "Neu", createDraft: "Entwurf erstellen", noDrafts: "Ersten Entwurf zum freien Schreiben erstellen",
+    draftDeleted: "Entwurf gelöscht",
+    draftsBack: "Entwürfe", titlePlaceholder: "Entwurfstitel…",
+    words: (n: number) => `${n} W.`, wordsTotal: (n: number) => `${n} Wörter`,
+    lessThanMin: "< 1 Min", minLabel: "Min", reading: "Lesen",
+    newDraftTitle: "Neuer Entwurf",
+    noChapter: "Kein Kapitel", saveBtn: "Speichern", toBookBtn: "Ins Buch",
+    aiTipBtn: "KI-Tipp", aiPanelBtn: "KI",
+    moveToBook: "In Buch übertragen", moveDesc: "Der Entwurfstext wird Teil des Haupteditors",
+    newChapterOpt: "Neues Kapitel erstellen", newChapterDesc: "Entwurf wird ein neues Kapitel im Editor",
+    appendOpt: "An bestehendes Kapitel anhängen", appendDesc: "Text am Ende des Kapitels eingefügt",
+    selectChapter: "Kapitel auswählen…", moveBtn: "Übertragen", movingBtn: "Übertrage…",
+    moveSuccessNew: "Neues Kapitel im Editor erstellt", moveSuccessAppend: "Text zum Kapitel hinzugefügt", moveError: "Übertragungsfehler",
+    linkChapter: "Kapitel verknüpfen",
+    moreDrafts: (n: number) => `${n} weitere Entwürfe…`,
+  },
+} as const;
+type ResearchT = typeof RESEARCH_I18N.ru;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -85,6 +239,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
   const { toast } = useToast();
   const { handleAiError } = useAiError();
   const { lang } = useLang();
+  const t = (RESEARCH_I18N[lang as keyof typeof RESEARCH_I18N] ?? RESEARCH_I18N.ru) as ResearchT;
 
   const [step, setStep] = useState<"form"|"analyzing"|"done">("form");
   const [authorName, setAuthorName] = useState("");
@@ -102,7 +257,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
 
   const handleFile = (f: File) => {
     const ext = f.name.split(".").pop()?.toLowerCase() || "";
-    if (!["epub","fb2","txt","md"].includes(ext)) { setFileError("Поддерживаются: EPUB, FB2, TXT"); return; }
+    if (!["epub","fb2","txt","md"].includes(ext)) { setFileError(t.fileError); return; }
     setFile(f); setFileError("");
   };
 
@@ -116,7 +271,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
     // For EPUB, use server extraction
     const fd = new FormData(); fd.append("file", f);
     const resp = await fetch("/api/extract-file-text", { method: "POST", body: fd });
-    if (!resp.ok) throw new Error("Не удалось извлечь текст из файла");
+    if (!resp.ok) throw new Error(t.extractError);
     const data = await resp.json();
     return data.text || "";
   };
@@ -173,7 +328,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
               <Brain className="h-4 w-4" style={{ color }} />
             </div>
             <span className="font-bold text-sm">
-              {step === "done" ? "Анализ завершён" : "Новая ролевая модель"}
+              {step === "done" ? t.analysisDone : t.newRoleModel}
             </span>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
@@ -186,27 +341,27 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
             <>
               {/* Author name */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Имя автора *</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t.authorNameLabel}</label>
                 <input
                   value={authorName} onChange={e => setAuthorName(e.target.value)} autoFocus
-                  placeholder="Например: Умберто Эко, Стивен Пинкер…"
+                  placeholder={t.authorNamePlaceholder}
                   className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2.5 text-sm outline-none focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/10 transition-all"
                 />
               </div>
 
               {/* Source title */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Источник (книга / статья)</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t.sourceLabel}</label>
                 <input
                   value={sourceName} onChange={e => setSourceName(e.target.value)}
-                  placeholder="Название произведения для анализа…"
+                  placeholder={t.sourcePlaceholder}
                   className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2.5 text-sm outline-none focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/10 transition-all"
                 />
               </div>
 
               {/* File upload */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Файл для анализа (EPUB / FB2 / TXT)</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t.fileLabel}</label>
                 <div
                   onClick={() => fileRef.current?.click()}
                   onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
@@ -218,13 +373,13 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
                       <FileText className="h-8 w-8" style={{ color }} />
                       <p className="text-sm font-semibold">{file.name}</p>
                       <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</p>
-                      <button onClick={e => { e.stopPropagation(); setFile(null); }} className="text-xs text-destructive hover:underline">Убрать</button>
+                      <button onClick={e => { e.stopPropagation(); setFile(null); }} className="text-xs text-destructive hover:underline">{t.fileRemove}</button>
                     </>
                   ) : (
                     <>
                       <FileText className="h-8 w-8 text-muted-foreground/30" />
-                      <p className="text-sm text-muted-foreground">Перетащите файл или нажмите для выбора</p>
-                      <p className="text-[11px] text-muted-foreground/50">EPUB, FB2, TXT — до 30 MB</p>
+                      <p className="text-sm text-muted-foreground">{t.fileDrop}</p>
+                      <p className="text-[11px] text-muted-foreground/50">{t.fileFormats}</p>
                     </>
                   )}
                 </div>
@@ -235,11 +390,11 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
 
               {/* Custom instruction */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Особые указания для анализа</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t.customInstrLabel}</label>
                 <textarea
                   value={customInstruction} onChange={e => setCustomInstruction(e.target.value)}
                   rows={3}
-                  placeholder="Например: сосредоточься на структуре аргументации, игнорируй стилистику…"
+                  placeholder={t.customInstrPlaceholder}
                   className="w-full rounded-xl border border-border bg-background/50 px-3.5 py-2.5 text-sm resize-none outline-none focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/10 transition-all"
                 />
               </div>
@@ -252,8 +407,8 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
                 <Brain className="h-8 w-8 animate-pulse" style={{ color }} />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-sm">{extracting ? "Извлекаю текст из файла…" : "Глубокий анализ стиля…"}</p>
-                <p className="text-xs text-muted-foreground mt-1">ИИ изучает {authorName} по 11 измерениям</p>
+                <p className="font-semibold text-sm">{extracting ? t.extractingText : t.analyzingText}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.analyzingDims(authorName)}</p>
               </div>
               <div className="flex gap-1">
                 {[0,1,2].map(i => (
@@ -268,19 +423,19 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
               <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50/60 dark:bg-green-950/20 border border-green-200/40">
                 <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
                 <div>
-                  <p className="font-semibold text-sm text-green-700 dark:text-green-400">Ролевая модель создана</p>
-                  <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-0.5">Анализ {authorName} доступен в разделе Ролевые модели</p>
+                  <p className="font-semibold text-sm text-green-700 dark:text-green-400">{t.modelCreated}</p>
+                  <p className="text-xs text-green-600/70 dark:text-green-400/60 mt-0.5">{t.modelCreatedDesc(authorName)}</p>
                 </div>
               </div>
               {analysis.stylePatterns && (
                 <div className="p-4 rounded-xl border border-border/50 bg-secondary/30 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Стиль</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t.styleLabel}</p>
                   <p className="text-sm leading-relaxed">{analysis.stylePatterns}</p>
                 </div>
               )}
               {analysis.conceptualTendencies && (
                 <div className="p-4 rounded-xl border border-border/50 bg-secondary/30 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Концептуальные тенденции</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{t.conceptLabel}</p>
                   <p className="text-sm leading-relaxed">{analysis.conceptualTendencies}</p>
                 </div>
               )}
@@ -293,7 +448,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
           <div className="flex gap-2 px-5 pb-5 pt-3 border-t border-border/50 flex-shrink-0">
             <button onClick={onClose}
               className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-border/60 text-muted-foreground hover:bg-secondary transition-colors">
-              {step === "done" ? "Закрыть" : "Отмена"}
+              {step === "done" ? t.closeBtn : t.cancelBtn}
             </button>
             {step === "form" && (
               <button
@@ -301,7 +456,7 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
                 disabled={!authorName.trim()}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${color}, #6366F1)` }}>
-                <Wand2 className="h-4 w-4" /> Анализировать
+                <Wand2 className="h-4 w-4" /> {t.analyzeBtn}
               </button>
             )}
           </div>
@@ -316,6 +471,8 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
 function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
   const { toast } = useToast();
   const { handleAiError } = useAiError();
+  const { lang } = useLang();
+  const t = (RESEARCH_I18N[lang as keyof typeof RESEARCH_I18N] ?? RESEARCH_I18N.ru) as ResearchT;
   const [selectedModel, setSelectedModel] = useState<AuthorRoleModel | null>(null);
   const [analyzing, setAnalyzing] = useState<number | null>(null);
   const [openSection, setOpenSection] = useState<string | null>("stylePatterns");
@@ -327,17 +484,19 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
   });
 
   const deepAnalyzeMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("POST", `/api/role-models/${id}/deep-analyze`, {
-      lang: "ru", bookTitle: book.title, bookMode: book.mode,
-    }),
+    mutationFn: ({ id, rawSourceText }: { id: number; rawSourceText?: string }) =>
+      apiRequest("POST", `/api/role-models/${id}/deep-analyze`, {
+        lang, bookTitle: book.title, bookMode: book.mode,
+        rawSourceText: rawSourceText || undefined,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "role-models"] });
       setAnalyzing(null);
-      toast({ title: "Анализ завершён" });
+      toast({ title: t.analyzeDone });
     },
     onError: (e: any) => {
       setAnalyzing(null);
-      if (!handleAiError(e)) toast({ title: "Ошибка анализа", variant: "destructive" });
+      if (!handleAiError(e)) toast({ title: t.analyzeError, variant: "destructive" });
     },
   });
 
@@ -350,10 +509,10 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
       <div className="rounded-2xl border border-border/50 bg-background/80 p-6 shadow-sm">
         <SectionHeader
           icon={Brain} color="#8B5CF6"
-          title="Ролевые Модели"
-          description="Изучите стиль авторов-ориентиров — нажмите на карточку для полного анализа"
+          title={t.roleModelsTitle}
+          description={t.roleModelsDesc}
           action={() => setShowCreate(true)}
-          actionLabel="Добавить"
+          actionLabel={t.addBtn}
           actionIcon={Plus}
         />
 
@@ -362,11 +521,11 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
             <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(139,92,246,0.1)" }}>
               <Brain className="h-6 w-6" style={{ color: "#8B5CF6" }} />
             </div>
-            <p className="text-sm text-muted-foreground">Добавьте автора-ориентира для анализа стиля</p>
+            <p className="text-sm text-muted-foreground">{t.noRoleModels}</p>
             <button onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
               style={{ background: "linear-gradient(135deg, #8B5CF6, #6366F1)" }}>
-              <Plus className="h-4 w-4" /> Добавить ролевую модель
+              <Plus className="h-4 w-4" /> {t.addRoleModel}
             </button>
           </div>
         ) : (
@@ -408,22 +567,22 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                       </div>
                       <div className="flex items-center gap-1 mt-1">
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
-                        <span className="text-[10px] text-green-600 font-medium">Проанализирован</span>
-                        <span className="ml-auto text-[10px] text-violet-500 group-hover:underline">Открыть →</span>
+                        <span className="text-[10px] text-green-600 font-medium">{t.isAnalyzed}</span>
+                        <span className="ml-auto text-[10px] text-violet-500 group-hover:underline">{t.openCard}</span>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Не проанализирован</span>
+                      <span className="text-[11px] text-muted-foreground">{t.notAnalyzed}</span>
                       <button
-                        onClick={e => { e.stopPropagation(); setAnalyzing(model.id); deepAnalyzeMutation.mutate(model.id); }}
+                        onClick={e => { e.stopPropagation(); setAnalyzing(model.id); deepAnalyzeMutation.mutate({ id: model.id, rawSourceText: model.rawSourceText || undefined }); }}
                         disabled={analyzing === model.id || deepAnalyzeMutation.isPending}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all"
                         style={{ background: `${color}15`, color }}>
                         {analyzing === model.id
                           ? <Loader2 className="h-3 w-3 animate-spin" />
                           : <Wand2 className="h-3 w-3" />}
-                        Анализ
+                        {t.analyzeShort}
                       </button>
                     </div>
                   )}
@@ -436,7 +595,7 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
               className="p-4 rounded-xl border-2 border-dashed border-border/40 hover:border-violet-300/50 hover:bg-violet-50/20 dark:hover:bg-violet-950/10 transition-all flex flex-col items-center justify-center gap-2 text-muted-foreground/40 hover:text-violet-400"
             >
               <Plus className="h-5 w-5" />
-              <span className="text-[11px] font-medium">Добавить</span>
+              <span className="text-[11px] font-medium">{t.addBtn}</span>
             </button>
           </div>
         )}
@@ -462,7 +621,7 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                 <div className="ml-auto flex items-center gap-2">
                   {selectedModel.analysisStatus === "analyzed" && (
                     <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-950/30 text-green-600 border border-green-200/40">
-                      <CheckCircle2 className="h-3 w-3" />Проанализирован
+                      <CheckCircle2 className="h-3 w-3" />{t.isAnalyzed}
                     </div>
                   )}
                   <button onClick={() => setSelectedModel(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary transition-colors">
@@ -475,14 +634,14 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                 {/* If not analyzed */}
                 {selectedModel.analysisStatus !== "analyzed" && (
                   <div className="p-4 rounded-xl bg-muted/30 border border-dashed border-border text-center">
-                    <p className="text-sm text-muted-foreground mb-3">Анализ ещё не проведён. Запустите глубокий анализ чтобы получить полный стилистический профиль.</p>
+                    <p className="text-sm text-muted-foreground mb-3">{t.notAnalyzedDesc}</p>
                     <button
-                      onClick={() => { setAnalyzing(selectedModel.id); deepAnalyzeMutation.mutate(selectedModel.id); }}
+                      onClick={() => { setAnalyzing(selectedModel.id); deepAnalyzeMutation.mutate({ id: selectedModel.id, rawSourceText: selectedModel.rawSourceText || undefined }); }}
                       disabled={analyzing === selectedModel.id}
                       className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white mx-auto"
                       style={{ background: "linear-gradient(135deg, #8B5CF6, #6366F1)" }}>
                       {analyzing === selectedModel.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      Запустить анализ
+                      {t.runAnalysis}
                     </button>
                   </div>
                 )}
@@ -492,7 +651,7 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                   <div className="p-4 rounded-xl border border-violet-200/40 bg-violet-50/30 dark:bg-violet-950/15">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="h-4 w-4 text-violet-500" />
-                      <p className="text-xs font-bold uppercase tracking-wider text-violet-600">ИИ-промпт стиля</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-violet-600">{t.stylePrompt}</p>
                     </div>
                     <p className="text-sm italic text-violet-700/80 dark:text-violet-300/70 leading-relaxed whitespace-pre-wrap">
                       "{selectedModel.styleInstruction}"
@@ -540,7 +699,7 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted/40">
                         <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-semibold flex-1">Исходный текст</p>
+                      <p className="text-sm font-semibold flex-1">{t.sourceText}</p>
                       {openSection === "__raw" ? <ChevronUp className="h-4 w-4 text-muted-foreground/50" /> : <ChevronDown className="h-4 w-4 text-muted-foreground/50" />}
                     </button>
                     {openSection === "__raw" && (
@@ -622,6 +781,8 @@ function DraftsSection({ bookId, book, onOpenDraft }: {
   onOpenDraft: (draft: Draft | null) => void;
 }) {
   const { toast } = useToast();
+  const { lang } = useLang();
+  const t = (RESEARCH_I18N[lang as keyof typeof RESEARCH_I18N] ?? RESEARCH_I18N.ru) as ResearchT;
 
   const { data: drafts = [] } = useQuery<Draft[]>({
     queryKey: ["/api/books", bookId, "drafts"],
@@ -645,7 +806,7 @@ function DraftsSection({ bookId, book, onOpenDraft }: {
     mutationFn: (id: number) => apiRequest("DELETE", `/api/drafts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "drafts"] });
-      toast({ title: "Черновик удалён" });
+      toast({ title: t.draftDeleted });
     },
   });
 
@@ -655,10 +816,10 @@ function DraftsSection({ bookId, book, onOpenDraft }: {
     <div className="rounded-2xl border border-border/50 bg-background/80 p-6 shadow-sm">
       <SectionHeader
         icon={FileEdit} color="#F96D1C"
-        title="Черновики"
-        description="Пишите черновики свободно — без вёрстки. Готовый текст переносится в книгу одной кнопкой"
-        action={() => createMutation.mutate({ title: "Новый черновик", content: "" })}
-        actionLabel="Новый"
+        title={t.draftsTitle}
+        description={t.draftsDesc}
+        action={() => createMutation.mutate({ title: t.newDraftTitle, content: "" })}
+        actionLabel={t.newDraft}
         actionIcon={Plus}
       />
 
@@ -667,13 +828,13 @@ function DraftsSection({ bookId, book, onOpenDraft }: {
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(249,109,28,0.1)" }}>
             <FileEdit className="h-6 w-6" style={{ color: "#F96D1C" }} />
           </div>
-          <p className="text-sm text-muted-foreground">Создайте первый черновик для свободного письма</p>
+          <p className="text-sm text-muted-foreground">{t.noDrafts}</p>
           <button
-            onClick={() => createMutation.mutate({ title: "Новый черновик", content: "" })}
+            onClick={() => createMutation.mutate({ title: t.newDraftTitle, content: "" })}
             disabled={createMutation.isPending}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white"
             style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)" }}>
-            <Plus className="h-4 w-4" /> Создать черновик
+            <Plus className="h-4 w-4" /> {t.createDraft}
           </button>
         </div>
       ) : (
@@ -689,7 +850,7 @@ function DraftsSection({ bookId, book, onOpenDraft }: {
           ))}
           {activeDrafts.length > 5 && (
             <button className="w-full py-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground border border-dashed border-border/40 hover:border-border transition-colors">
-              Ещё {activeDrafts.length - 5} черновиков…
+              {t.moreDrafts(activeDrafts.length - 5)}
             </button>
           )}
         </div>
@@ -706,6 +867,8 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
   const { toast } = useToast();
   const { handleAiError } = useAiError();
   const { lang } = useLang();
+  const t = (RESEARCH_I18N[lang as keyof typeof RESEARCH_I18N] ?? RESEARCH_I18N.ru) as ResearchT;
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const [title, setTitle] = useState(draft.title);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [linkedChapterId, setLinkedChapterId] = useState<number | null>(draft.linkedChapterId ?? null);
@@ -757,7 +920,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
 
   const getReadingTime = () => {
     const mins = Math.ceil(wordCount / 200);
-    return mins < 1 ? "< 1 мин" : `${mins} мин`;
+    return mins < 1 ? t.lessThanMin : `${mins} ${t.minLabel}`;
   };
 
   const handleGetAiTip = async () => {
@@ -775,7 +938,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
       });
       setAiTip(data.improved || data.text || "");
     } catch (e: any) {
-      if (!handleAiError(e)) toast({ title: "Ошибка AI", variant: "destructive" });
+      if (!handleAiError(e)) toast({ title: t.aiError, variant: "destructive" });
     } finally {
       setTipLoading(false);
     }
@@ -793,7 +956,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           bookId,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "chapters"] });
-        toast({ title: "Создана новая глава в редакторе" });
+        toast({ title: t.moveSuccessNew });
       } else if (moveMode === "append" && moveTargetChapterId) {
         const ch = chapters.find(c => c.id === moveTargetChapterId);
         if (ch) {
@@ -807,12 +970,12 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
             content: JSON.stringify(merged),
           });
           queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "chapters"] });
-          toast({ title: "Текст добавлен в главу" });
+          toast({ title: t.moveSuccessAppend });
         }
       }
       setShowMoveModal(false);
     } catch (e: any) {
-      toast({ title: "Ошибка переноса", variant: "destructive" });
+      toast({ title: t.moveError, variant: "destructive" });
     } finally {
       setMoving(false);
     }
@@ -828,7 +991,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           <button onClick={() => { if (isDirty) save(); onBack(); }}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-4 w-4" />
-            Черновики
+            {t.draftsBack}
           </button>
           <span className="text-muted-foreground/30">·</span>
 
@@ -837,12 +1000,12 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
             value={title}
             onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
             className="flex-1 text-sm font-semibold bg-transparent outline-none focus:ring-0 border-0 placeholder:text-muted-foreground/40 min-w-0"
-            placeholder="Название черновика…"
+            placeholder={t.titlePlaceholder}
           />
 
           {/* Stats */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground/60 flex-shrink-0">
-            <span>{wordCount} сл.</span>
+            <span>{t.words(wordCount)}</span>
             <span>·</span>
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime}</span>
             {isDirty && <span className="text-amber-500">●</span>}
@@ -856,10 +1019,10 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           >
             <SelectTrigger className="w-40 h-7 text-xs rounded-lg border-border/50 bg-secondary/50 [&>span]:truncate">
               <Link2 className="h-3 w-3 mr-1 flex-shrink-0 text-muted-foreground/60" />
-              <SelectValue placeholder="Привязать главу" />
+              <SelectValue placeholder={t.linkChapter} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Без главы</SelectItem>
+              <SelectItem value="none">{t.noChapter}</SelectItem>
               {chapters.map(c => (
                 <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>
               ))}
@@ -869,18 +1032,24 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           {/* Actions */}
           <div className="flex items-center gap-1.5">
             <button
+              onClick={() => setShowAiPanel(v => !v)}
+              title="AI"
+              className={`h-7 w-7 flex items-center justify-center rounded-lg transition-colors border ${showAiPanel ? "bg-violet-100 dark:bg-violet-900/30 border-violet-300/50 text-violet-600" : "border-border/50 text-muted-foreground hover:bg-secondary"}`}>
+              <Wand2 className="h-3.5 w-3.5" />
+            </button>
+            <button
               onClick={() => setShowMoveModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)" }}>
               <SendToBack className="h-3.5 w-3.5" />
-              В книгу
+              {t.toBookBtn}
             </button>
             <button
               onClick={save}
               disabled={!isDirty || updateMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-border/50 hover:bg-secondary disabled:opacity-40">
               <Save className="h-3.5 w-3.5" />
-              Сохранить
+              {t.saveBtn}
             </button>
           </div>
         </div>
@@ -910,30 +1079,43 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
         </div>
       )}
 
-      {/* Block editor */}
-      <div className="flex-1 overflow-hidden" style={{ zoom: fontScale / 100 }}>
-        <div style={{ maxWidth, margin: "0 auto" }}>
-          <BlockEditor
-            key={draft.id}
-            initialContent={draft.content || ""}
-            onChange={newBlocks => { setBlocks(newBlocks); setIsDirty(true); }}
-          />
+      {/* Block editor + optional AI panel */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 overflow-hidden" style={{ zoom: fontScale / 100 }}>
+          <div style={{ maxWidth, margin: "0 auto" }}>
+            <BlockEditor
+              key={draft.id}
+              initialContent={draft.content || ""}
+              onChange={newBlocks => { setBlocks(newBlocks); setIsDirty(true); }}
+            />
+          </div>
         </div>
+        {showAiPanel && (
+          <div className="w-[320px] flex-shrink-0 border-l border-border/50 overflow-y-auto">
+            <AiPanel
+              book={book}
+              chapter={null}
+              context={blocksToPlainText(blocks)}
+              chapters={chapters}
+              onInsert={null}
+            />
+          </div>
+        )}
       </div>
 
       {/* Bottom bar */}
       <div className="flex-shrink-0 border-t border-border/30 px-5 py-2 flex items-center gap-4 bg-background/50">
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground/50">
-          <span>{wordCount} слов</span>
+          <span>{t.wordsTotal(wordCount)}</span>
           <span>·</span>
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime} чтения</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime} {t.reading}</span>
         </div>
         <button
           onClick={handleGetAiTip}
           disabled={tipLoading || wordCount === 0}
           className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground/60 hover:text-amber-500 transition-colors disabled:opacity-40">
           {tipLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          Совет ИИ
+          {t.aiTipBtn}
         </button>
       </div>
 
@@ -946,8 +1128,8 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
                 <SendToBack className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-bold text-base">Перенести в книгу</h3>
-                <p className="text-xs text-muted-foreground">Текст черновика станет частью основного редактора</p>
+                <h3 className="font-bold text-base">{t.moveToBook}</h3>
+                <p className="text-xs text-muted-foreground">{t.moveDesc}</p>
               </div>
               <button onClick={() => setShowMoveModal(false)} className="ml-auto text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -963,8 +1145,8 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
                     <Plus className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Создать новую главу</p>
-                    <p className="text-xs text-muted-foreground">Черновик станет новой главой в редакторе</p>
+                    <p className="text-sm font-semibold">{t.newChapterOpt}</p>
+                    <p className="text-xs text-muted-foreground">{t.newChapterDesc}</p>
                   </div>
                   {moveMode === "new" && <CheckCircle2 className="h-4 w-4 text-primary ml-auto flex-shrink-0" />}
                 </div>
@@ -980,8 +1162,8 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
                     <GitBranch className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">Добавить в существующую главу</p>
-                    <p className="text-xs text-muted-foreground">Текст добавляется в конец выбранной главы</p>
+                    <p className="text-sm font-semibold">{t.appendOpt}</p>
+                    <p className="text-xs text-muted-foreground">{t.appendDesc}</p>
                   </div>
                   {moveMode === "append" && <CheckCircle2 className="h-4 w-4 text-primary ml-auto flex-shrink-0" />}
                 </div>
@@ -990,7 +1172,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
               {moveMode === "append" && (
                 <Select value={moveTargetChapterId ? String(moveTargetChapterId) : ""} onValueChange={v => setMoveTargetChapterId(Number(v))}>
                   <SelectTrigger className="w-full rounded-xl h-10 text-sm">
-                    <SelectValue placeholder="Выберите главу…" />
+                    <SelectValue placeholder={t.selectChapter} />
                   </SelectTrigger>
                   <SelectContent>
                     {chapters.map(c => (
@@ -1004,7 +1186,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
             <div className="flex gap-2">
               <button onClick={() => setShowMoveModal(false)}
                 className="flex-1 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-secondary transition-colors">
-                Отмена
+                {t.cancelBtn}
               </button>
               <button
                 onClick={handleMoveToChapter}
@@ -1012,7 +1194,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)" }}>
                 {moving ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendToBack className="h-4 w-4" />}
-                Перенести
+                {moving ? t.movingBtn : t.moveBtn}
               </button>
             </div>
           </div>
@@ -1056,24 +1238,6 @@ export function ResearchWorkspace({ bookId, book }: { bookId: number; book: Book
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Workspace header */}
-      <div className="px-5 pt-4 pb-3 border-b border-border/30 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(99,102,241,0.1))" }}>
-              <Brain className="h-3.5 w-3.5" style={{ color: "#8B5CF6" }} />
-            </div>
-            <span className="text-sm font-bold tracking-tight">Черновики и ролевые модели</span>
-          </div>
-          <div className="h-4 w-px bg-border/40" />
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <BookOpen className="h-3 w-3" />
-            <span className="truncate max-w-[160px]">{book.title}</span>
-          </div>
-        </div>
-      </div>
-
       {/* 50 / 50 split — each panel independently scrollable */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Role Models */}
