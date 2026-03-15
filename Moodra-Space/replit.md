@@ -21,6 +21,16 @@ Moodra is a next-gen AI writing environment for serious authors. The platform co
   - **DB tables**: `notes` (extended with `collectionIds`, `isQuick`, `linkedSourceIds`, `linkedDraftIds`, `semanticTags`), `note_collections`
   - **API routes**: GET/POST `/api/books/:id/collections`, PATCH/DELETE `/api/collections/:id`
   - **Components**: `client/src/components/notes-tab.tsx`, `client/src/components/notes-graph.tsx` (SVG graph engine)
+- **Sources Module** (Research panel — Library tab, fully replaced):
+  - **9 source types**: article, website, pdf, document, book_excerpt, book, quote, research_snippet, custom — each with distinct icon + color theme
+  - **List view**: search bar, type filter chips with live counts, source cards showing type icon, author, summary snippet, concept pills, tags, URL link, linked-notes count
+  - **Editor view**: type selector chips, title, author, URL, importance (low/normal/high), raw content textarea (with file upload), summary, key concepts (rendered as colored pills), key quotes, tags, linked notes multi-select, linked drafts multi-select
+  - **AI Actions**: Analyze (structured JSON → key ideas, themes, argument map, writing style, conceptual summary, project relevance) + Extract Quotes + Extract Concepts
+  - **Source Actions**: → Note (creates a `research_note` from summary/concepts/quotes), → Board (injects a board node)
+  - **AI Analysis panel** (collapsible): displays full structured results with conceptual summary, key idea list, theme chips, argument structure, writing style, and project relevance block
+  - **File upload**: reads .txt/.doc/.docx up to 2 MB, auto-detects type, prefills editor
+  - **DB schema extended**: `rawContent`, `linkedNoteIds`, `linkedDraftIds`, `importance`, `status`, `aiAnalysis` columns added to `sources` table
+  - **Components**: `client/src/components/sources-tab.tsx`; wired into `research-panel.tsx` replacing old Library tab body
 - **Two book modes**: Scientific (non-fiction, philosophy) and Fiction (novels, sci-fi)
 - **Notion-like block editor**: 18+ block types with drag-and-drop reordering (@dnd-kit); solid FormatToolbar (no blur); selection-only AI improve; cursor-at-merge junction
 - **List block types**: `bullet_item`, `numbered_item`, `check_item` — first-class blocks; Enter continues list, Backspace on empty exits to paragraph; numbered items auto-count consecutive runs; check_item toggles checked state via metadata.checked; all render in PDF/layout with proper indentation

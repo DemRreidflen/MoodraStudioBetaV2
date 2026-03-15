@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { Draft } from "@shared/schema";
 import { NotesTab } from "@/components/notes-tab";
+import { SourcesTab } from "@/components/sources-tab";
 import { format } from "date-fns";
 import { ru, uk, de as deDe, enUS } from "date-fns/locale";
 
@@ -2336,69 +2337,7 @@ export function ResearchPanel({ bookId, book }: { bookId: number; book: Book }) 
         )}
 
         {activeTab === "library" && (
-          <div className="h-full flex flex-col">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt,.md,text/plain,text/markdown"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <div className="p-4 border-b border-border flex items-center justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-sm">{rp.yourSources}</h3>
-                <p className="text-xs text-muted-foreground">{rp.materialsCount(sources.length)}</p>
-              </div>
-              <div className="flex gap-1.5">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-xl h-8 px-3 gap-1.5"
-                  data-testid="button-upload-file"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  {rp.uploadFile}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => { setEditSource(undefined); setShowDialog(true); }}
-                  className="rounded-xl h-8 px-3 gap-1.5"
-                  data-testid="button-add-source-manual"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {rp.add}
-                </Button>
-              </div>
-            </div>
-
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-3">
-                {isLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-24 bg-muted/40 rounded-xl animate-pulse" />
-                  ))
-                ) : sources.length > 0 ? (
-                  sources.map(source => (
-                    <SourceCard
-                      key={source.id}
-                      source={source}
-                      onEdit={(s) => { setEditSource(s); setShowDialog(true); }}
-                      onDelete={(id) => deleteMutation.mutate(id)}
-                    />
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center mb-3">
-                      <BookOpen className="h-6 w-6 opacity-40" />
-                    </div>
-                    <p className="text-sm font-medium">{rp.emptyLibrary}</p>
-                    <p className="text-xs max-w-[180px] mt-1">{rp.emptyLibraryDesc}</p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
+          <SourcesTab bookId={bookId} book={book} />
         )}
       </div>
 
