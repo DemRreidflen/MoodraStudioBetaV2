@@ -107,6 +107,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
   const [toneInstruction, setToneInstruction] = useState("");
   const [showNoApi, setShowNoApi] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const subPanelOpenRef = useRef(false);
 
   const ACTIONS = [
     { mode: "improve",    label: s.improve,    icon: Wand2,       color: "#818CF8" },
@@ -118,7 +119,12 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     { mode: "fix-grammar",label: s.fixGrammar, icon: SpellCheck,  color: "#6EE7B7" },
   ];
 
+  useEffect(() => {
+    subPanelOpenRef.current = showToneInput || showTranslatePicker || showNoApi;
+  }, [showToneInput, showTranslatePicker, showNoApi]);
+
   const handleSelectionChange = useCallback(() => {
+    if (subPanelOpenRef.current) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
       setVisible(false);
@@ -173,24 +179,6 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     return () => document.removeEventListener("mousedown", hide);
   }, []);
 
-  const handleActionClick = useCallback((mode: string) => {
-    if (isFreeMode) {
-      setShowNoApi(true);
-      setShowTranslatePicker(false);
-      setShowToneInput(false);
-      return;
-    }
-    if (mode === "translate") {
-      setShowToneInput(false);
-      setShowTranslatePicker(v => !v);
-    } else if (mode === "adapt-tone") {
-      setShowTranslatePicker(false);
-      setShowToneInput(v => !v);
-    } else {
-      runAction(mode);
-    }
-  }, [isFreeMode]);
-
   const runAction = useCallback(async (mode: string, extraParams?: Record<string, string>) => {
     if (!selectedText || loading) return;
     if (isFreeMode) { setShowNoApi(true); return; }
@@ -220,6 +208,24 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     }
   }, [selectedText, loading, isFreeMode, bookTitle, bookMode, onResult]);
 
+  const handleActionClick = useCallback((mode: string) => {
+    if (isFreeMode) {
+      setShowNoApi(true);
+      setShowTranslatePicker(false);
+      setShowToneInput(false);
+      return;
+    }
+    if (mode === "translate") {
+      setShowToneInput(false);
+      setShowTranslatePicker(v => !v);
+    } else if (mode === "adapt-tone") {
+      setShowTranslatePicker(false);
+      setShowToneInput(v => !v);
+    } else {
+      runAction(mode);
+    }
+  }, [isFreeMode, runAction]);
+
   if (!visible) return null;
 
   return (
@@ -227,7 +233,9 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       ref={toolbarRef}
       className="fixed z-[9999] flex flex-col gap-1"
       style={{ top: position.top, left: position.left }}
-      onMouseDown={e => e.preventDefault()}
+      onMouseDown={e => {
+        if ((e.target as HTMLElement).tagName !== "INPUT") e.preventDefault();
+      }}
     >
       {/* Main toolbar */}
       <div
