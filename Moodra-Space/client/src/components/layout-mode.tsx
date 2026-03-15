@@ -661,6 +661,9 @@ export function LayoutMode({ bookId, book }: { bookId: number; book: Book }) {
               <Row label={lp.firstLineIndent || "First indent"}>
                 <NumInput value={settings.firstLineIndent ?? 1.2} onChange={v => update({ firstLineIndent: v })} min={0} max={5} step={0.1} unit="em" />
               </Row>
+              <Row label={lp.letterSpacing || "Letter spacing"}>
+                <NumInput value={settings.letterSpacing ?? 0} onChange={v => update({ letterSpacing: v })} min={-0.1} max={0.5} step={0.01} unit="em" />
+              </Row>
               <Row label={lp.alignment}>
                 <div className="flex gap-1">
                   <button onClick={() => update({ textAlign: "justify" })}

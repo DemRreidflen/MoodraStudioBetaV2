@@ -14,13 +14,12 @@ import { ResearchPanel } from "@/components/research-panel";
 import { BookSettings } from "@/components/book-settings";
 import { IdeaBoard } from "@/components/idea-board";
 import { LayoutMode } from "@/components/layout-mode";
-import { CanvasEditor } from "@/components/canvas-editor";
 import { FocusTimer } from "@/components/focus-timer";
 import { LanguagePicker } from "@/components/language-picker";
 import {
   ArrowLeft, Sparkles, Users, BookOpen, FileText,
   Settings, Brain, Download, Columns2,
-  X, FileText as FileText2, PenLine, File, LayoutList,
+  X, FileText as FileText2, PenLine,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -29,7 +28,6 @@ import {
 import { cn } from "@/lib/utils";
 
 export type EditorTab = "editor" | "characters" | "notes" | "research" | "board" | "layout" | "settings";
-export type ViewMode = "sheets" | "canvas";
 
 function CoverDot({ book }: { book: Book }) {
   if (book.coverImage) {
@@ -52,7 +50,6 @@ export default function BookEditor() {
   const [, navigate] = useLocation();
   const bookId = Number(params?.id);
   const [activeTab, setActiveTab] = useState<EditorTab>("editor");
-  const [viewMode, setViewMode] = useState<ViewMode>("sheets");
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
   const [showAI, setShowAI] = useState(true);
   const [isDeepWritingMode, setIsDeepWritingMode] = useState(false);
@@ -158,7 +155,7 @@ export default function BookEditor() {
             <span className="font-semibold text-sm truncate tracking-tight" data-testid="book-editor-title">
               {book.title}
             </span>
-            {selectedChapter && activeTab === "editor" && viewMode === "sheets" && (
+            {selectedChapter && activeTab === "editor" && (
               <>
                 <span className="text-muted-foreground/50 text-sm flex-shrink-0">/</span>
                 <span className="text-muted-foreground text-sm truncate">{selectedChapter.title}</span>
@@ -187,44 +184,6 @@ export default function BookEditor() {
               </Tooltip>
             ))}
           </div>
-
-          <div className="h-4 w-px bg-border/60 flex-shrink-0" />
-
-          {/* View mode toggle — editor tab only */}
-          {activeTab === "editor" && (
-            <div className="flex items-center bg-secondary/60 rounded-xl p-0.5 flex-shrink-0">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setViewMode("sheets")}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
-                      viewMode === "sheets"
-                        ? "bg-background shadow-apple-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <File className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Одна глава</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setViewMode("canvas")}
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
-                      viewMode === "canvas"
-                        ? "bg-background shadow-apple-sm text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <LayoutList className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Все главы</TooltipContent>
-              </Tooltip>
-            </div>
-          )}
 
           <div className="h-4 w-px bg-border/60 flex-shrink-0" />
 
@@ -299,13 +258,7 @@ export default function BookEditor() {
             bookMode={book.mode || "scientific"}
             chapters={chapters}
             selectedId={selectedChapterId}
-            onSelect={id => {
-              setSelectedChapterId(id);
-              if (viewMode === "canvas") {
-                const el = document.getElementById(`canvas-chapter-${id}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }
-            }}
+            onSelect={id => setSelectedChapterId(id)}
           />
         )}
 
@@ -313,7 +266,7 @@ export default function BookEditor() {
           "flex-1 overflow-hidden flex flex-col min-w-0 bg-card",
           isDeepWritingMode && "bg-[#FAF2EA]"
         )}>
-          {activeTab === "editor" && viewMode === "sheets" && (
+          {activeTab === "editor" && (
             <ChapterEditor
               chapter={selectedChapter || null}
               bookTitle={book.title}
@@ -325,19 +278,6 @@ export default function BookEditor() {
             />
           )}
 
-          {activeTab === "editor" && viewMode === "canvas" && (
-            <CanvasEditor
-              chapters={chapters}
-              bookId={bookId}
-              bookTitle={book.title}
-              bookMode={book.mode || "scientific"}
-              selectedChapterId={selectedChapterId}
-              onSelectChapter={id => {
-                setSelectedChapterId(id);
-                setAiContext("");
-              }}
-            />
-          )}
 
 
           {activeTab === "characters" && <CharactersPanel bookId={bookId} />}

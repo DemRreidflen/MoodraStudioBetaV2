@@ -30,13 +30,20 @@ export const GOAL_KEY = "moodra_streak_goal";
 export const LOG_KEY = "moodra_writing_log_v2";
 
 export function getTodayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function isYesterday(dateStr: string): boolean {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  return yesterday.toISOString().slice(0, 10) === dateStr;
+  const y = yesterday.getFullYear();
+  const m = String(yesterday.getMonth() + 1).padStart(2, "0");
+  const day = String(yesterday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}` === dateStr;
 }
 
 function loadStreak(): StreakData & { _raw: any } {

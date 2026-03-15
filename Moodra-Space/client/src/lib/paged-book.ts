@@ -251,6 +251,7 @@ html, body {
   font-family: ${s.fontFamily};
   font-size: ${s.fontSize}pt;
   line-height: ${s.lineHeight};
+  letter-spacing: ${(s.letterSpacing ?? 0)}em;
   color: #1a1007;
   background: #cdc7bf;
   font-kerning: normal;

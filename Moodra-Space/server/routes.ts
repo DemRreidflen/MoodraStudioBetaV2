@@ -619,26 +619,37 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       lang === "de" ? "IMPORTANT: Respond ONLY in German." :
       "Respond in English.";
 
-    const systemPrompt = `You are a literary analyst, cognitive style researcher, and creative writing coach. Your task is to perform a deep structural analysis of the provided text and reconstruct the "creative model" of the author. You must analyze not just WHAT is written, but HOW the author thinks, argues, structures, sounds, and moves.
+    const systemPrompt = `You are a specialized deep literary analyst and cognitive style researcher operating inside the Moodra writing platform. Your task is to perform a complete, multi-layered reconstruction of the author's mind, writing method, and intellectual style from the provided source text.
 
-Do NOT summarize the content. Analyze the mechanics and behavior of the mind producing it.
+This is NOT a summary. You are reconstructing the COGNITIVE AND STYLISTIC MODEL of the author — how they think, argue, structure ideas, build rhythm, use language, and engage emotionally with the reader.
 
 ${langInstruction}
 
-Return ONLY a valid JSON object with exactly these 9 string fields (each 3–6 sentences, specific and analytical):
+Perform your analysis across these dimensions:
+
+STAGE 1 — NARRATIVE STYLE: Type of narration, author's distance from subject, level of subjectivity, intensity of imagery.
+STAGE 2 — SENTENCE ARCHITECTURE: Average sentence length, syntactic complexity, rhythm patterns, density of meaning per sentence.
+STAGE 3 — LANGUAGE TEXTURE: Vocabulary density, abstraction level, metaphor types, symbolic frequency.
+STAGE 4 — INTELLECTUAL METHOD: How the author thinks — deductively, inductively, associatively, philosophically, analytically, or narratively. How they form and connect ideas.
+STAGE 5 — ARGUMENT STRUCTURE: How the author builds a case — through examples, concepts, stories, or logical chains. How they handle objections and counter-arguments.
+STAGE 6 — COGNITIVE PATTERNS: Repeating mental models, favourite constructions, characteristic themes, recurring oppositions and tensions.
+STAGE 7 — EMOTIONAL DYNAMICS: Emotional temperature of the text (calm / intellectual / expressive / cold / ironic / dramatic), how emotion is embedded in structure rather than stated directly.
+
+Return ONLY a valid JSON object with exactly these 9 fields. Each field must be rich, specific, analytical — minimum 4 sentences, maximum 8. Do not use vague generalities. Be precise about what you observe in the text.
+
 {
-  "conceptualTendencies": "How the author constructs and connects ideas. Their intellectual instincts. Pattern of thought formation.",
-  "stylePatterns": "Sentence structure, rhythm, voice, use of abstraction vs. concreteness, density of ideas per paragraph.",
-  "structurePatterns": "How the author organizes sections, chapters, arguments. Macro and micro structure logic.",
-  "rhythmObservations": "Pace of writing, how energy builds and releases, transitions, use of pauses and acceleration.",
-  "vocabularyTendencies": "Characteristic vocabulary: domains drawn from, abstraction level, metaphor types, linguistic register.",
-  "argumentBehavior": "How the author makes a case. Deductive or inductive? Evidence type. How objections are handled.",
-  "emotionalDynamics": "Emotional temperature, what emotions are invoked, how affect is embedded structurally.",
-  "reusableParameters": "3–5 concrete reusable parameters a writer could adopt from this author: e.g., technique, structural device, tonal quality.",
-  "styleInstruction": "A single, dense, actionable system instruction (2–4 sentences) for an AI writing assistant to imitate this author's style and thinking."
+  "conceptualTendencies": "Deep analysis of how the author constructs and connects ideas. Their intellectual instincts, pattern of thought formation, preferred cognitive moves. How abstract and concrete levels interact in their thinking.",
+  "stylePatterns": "Detailed description of sentence structure, rhythm, voice register, use of abstraction vs. concreteness, density of meaning per paragraph. What makes this author's prose immediately recognisable.",
+  "structurePatterns": "How the author organises sections and arguments at macro and micro level. How chapters or sections are opened and closed. What holds the argument architecture together.",
+  "rhythmObservations": "Pace of writing, how energy builds and releases, transition mechanics, use of pauses, short sentences, and acceleration. The music of the prose.",
+  "vocabularyTendencies": "Characteristic vocabulary: which domains it draws from, abstraction level, metaphor types, linguistic register (formal/conversational/technical/literary), signature phrases or constructions.",
+  "argumentBehavior": "How the author makes a case — deductive or inductive, through evidence or through narrative, how objections are preempted or addressed. The logic of persuasion in the text.",
+  "emotionalDynamics": "Emotional temperature of the text, what emotions are invoked in the reader, how affect is embedded in structural and linguistic choices rather than stated directly.",
+  "reusableParameters": "5–7 concrete, specific techniques a writer could adopt from this author. Each should be a named device or method with a brief description of how to apply it.",
+  "styleInstruction": "A dense, precise, actionable system instruction (3–5 sentences) for an AI writing assistant to produce text in this author's style and cognitive register. Must be specific enough to produce recognisably similar output — not just 'write clearly' but 'use short declarative sentences followed by a longer elaborating sentence; open with a provocative claim; avoid hedging language; prefer concrete metaphors drawn from physical experience'."
 }${customInstruction ? `\n\nAdditional focus instruction from the user: ${customInstruction}` : ""}`;
 
-    const userPrompt = `Analyze the following text and return the JSON object:\n\n---\n${rawSourceText.slice(0, 6000)}\n---`;
+    const userPrompt = `Perform a deep author style reconstruction on the following text. Return the JSON object with all 9 fields filled in full detail:\n\n---\n${rawSourceText.slice(0, 8000)}\n---`;
 
     const parseAnalysis = (raw: string) => {
       let text = raw.trim();
@@ -682,7 +693,7 @@ Return ONLY a valid JSON object with exactly these 9 string fields (each 3–6 s
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 2400,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
       });
       const raw = completion.choices[0]?.message?.content || "{}";

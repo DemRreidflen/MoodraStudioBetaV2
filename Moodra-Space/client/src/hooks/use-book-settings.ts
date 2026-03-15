@@ -11,6 +11,7 @@ export interface BookTypographySettings {
   lineHeight: number;
   paragraphSpacing: number;
   firstLineIndent: number;
+  letterSpacing: number;
   textAlign: "justify" | "left";
   chapterBreak: boolean;
   h1Size: number;
@@ -37,6 +38,7 @@ export const DEFAULT_BOOK_SETTINGS: BookTypographySettings = {
   lineHeight: 1.6,
   paragraphSpacing: 0.5,
   firstLineIndent: 1.2,
+  letterSpacing: 0,
   textAlign: "justify",
   chapterBreak: true,
   h1Size: 22,

@@ -35,8 +35,10 @@ function getMonthDays(year: number, month: number): { date: string; dayOfWeek: n
   const days: { date: string; dayOfWeek: number }[] = [];
   const d = new Date(year, month, 1);
   while (d.getMonth() === month) {
-    const str = d.toISOString().slice(0, 10);
-    days.push({ date: str, dayOfWeek: d.getDay() });
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    days.push({ date: `${y}-${m}-${day}`, dayOfWeek: d.getDay() });
     d.setDate(d.getDate() + 1);
   }
   return days;
