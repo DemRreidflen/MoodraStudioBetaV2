@@ -509,6 +509,49 @@ function Page({
               }} dangerouslySetInnerHTML={{ __html: b.text }} />
             );
           }
+          // Special semantic block types — render with subtle label + tinted box
+          const SEMANTIC_TYPES: Record<string, { label: string; border: string; bg: string }> = {
+            idea:            { label: "Idea",            border: "#F59E0B", bg: "rgba(245,158,11,0.06)" },
+            argument:        { label: "Argument",        border: "#10B981", bg: "rgba(16,185,129,0.06)" },
+            counterargument: { label: "Counterargument", border: "#EF4444", bg: "rgba(239,68,68,0.06)" },
+            hypothesis:      { label: "Hypothesis",      border: "#6366F1", bg: "rgba(99,102,241,0.06)" },
+            question:        { label: "Question",        border: "#8B5CF6", bg: "rgba(139,92,246,0.06)" },
+            example:         { label: "Example",         border: "#0D9488", bg: "rgba(13,148,136,0.06)" },
+            observation:     { label: "Observation",     border: "#F97316", bg: "rgba(249,115,22,0.06)" },
+            research:        { label: "Research",        border: "#64748B", bg: "rgba(100,116,139,0.06)" },
+          };
+          if (SEMANTIC_TYPES[b.type]) {
+            const cfg = SEMANTIC_TYPES[b.type];
+            return (
+              <div key={i} style={{
+                borderLeft: `2.5px solid ${cfg.border}`,
+                background: cfg.bg,
+                borderRadius: "0 4px 4px 0",
+                padding: `${fontSizePx * 0.35}px ${fontSizePx * 0.85}px`,
+                marginLeft: indentPx,
+                marginTop: fontSizePx * 0.35 + paraSpacingPx,
+                marginBottom: fontSizePx * 0.35 + paraSpacingPx,
+              }}>
+                <div style={{
+                  fontFamily,
+                  fontSize: fontSizePx * 0.65,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  color: cfg.border,
+                  marginBottom: fontSizePx * 0.2,
+                  opacity: 0.85,
+                }}>{cfg.label}</div>
+                <p style={{
+                  fontFamily,
+                  fontSize: fontSizePx,
+                  lineHeight: lineSpacing,
+                  color: "#1a1a1a",
+                  margin: 0,
+                }} dangerouslySetInnerHTML={{ __html: b.text }} />
+              </div>
+            );
+          }
           if (b.type === "bullet_item") {
             const bulletIndent = (b.indentLevel + 1) * fontSizePx * 1.8;
             return (

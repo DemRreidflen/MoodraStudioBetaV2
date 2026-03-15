@@ -1201,18 +1201,22 @@ function SortableBlock({
   const { lang } = useLang();
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
   const contentRef = useRef<HTMLDivElement>(null);
-  const initializedRef = useRef(false);
+  const initializedElRef = useRef<HTMLElement | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
 
-  // Initialize innerHTML from block.content on first mount only
+  // Re-initialize innerHTML whenever the underlying DOM element changes.
+  // This covers both initial mount AND block-type switches (e.g. paragraph →
+  // idea/argument) where React replaces the DOM node but `block.content` still
+  // holds the text.  Running without a dep-array means the check is O(1) each
+  // render; it only writes to the DOM when the element actually changed.
   useLayoutEffect(() => {
-    if (!initializedRef.current && contentRef.current) {
-      initializedRef.current = true;
+    if (contentRef.current && contentRef.current !== initializedElRef.current) {
+      initializedElRef.current = contentRef.current;
       if (block.content && block.content !== contentRef.current.innerHTML) {
         contentRef.current.innerHTML = block.content;
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  });
 
   useEffect(() => {
     if (isFocused && contentRef.current) {
