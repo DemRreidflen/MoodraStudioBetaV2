@@ -1238,6 +1238,244 @@ New directions the author could explore — what could make this text exceptiona
     }
   });
 
+  // ───── COGNITIVE AGENTS (Linker / Distiller / Expansion / Structuring / Tension / Relevance / Transformation / Mapping) ─────
+
+  app.post("/api/ai/cognitive-agent", async (req: Request, res: Response) => {
+    const { agentType, functionType, content, bookTitle, lang } = req.body;
+    if (!agentType || !functionType || !content?.trim()) {
+      return res.status(400).json({ error: "agentType, functionType, and content are required" });
+    }
+
+    const langInstruction =
+      lang === "ru" ? "Respond ONLY in Russian." :
+      lang === "ua" ? "Respond ONLY in Ukrainian." :
+      lang === "de" ? "Respond ONLY in German." :
+      "Respond in English.";
+
+    const bookCtx = bookTitle ? `\nBook context: "${bookTitle}"\n` : "";
+
+    type FnMap = Record<string, { system: string; userPrefix: string }>;
+    const agentPrompts: Record<string, FnMap> = {
+      linker: {
+        suggest_links: {
+          system: `You are a semantic linking agent. Your task is to find meaningful conceptual connections between the given text and potential related ideas, themes, or knowledge objects. ${langInstruction}`,
+          userPrefix: `Find 4–6 meaningful connections for this text. For each connection: (1) name what it connects to, (2) explain why the link is meaningful, (3) describe what new insight the connection reveals. Format as a numbered list with clear headers.\n\nText:\n`,
+        },
+        suggest_backlinks: {
+          system: `You are a semantic backlink agent. Your task is to identify what foundational ideas, sources, or concepts this text builds upon or references. ${langInstruction}`,
+          userPrefix: `Identify 4–6 backlinks for this text — what it LINKS BACK to. For each: name the foundational concept/source, explain what is borrowed from it, and suggest how to acknowledge this connection. Format as a numbered list.\n\nText:\n`,
+        },
+        detect_related: {
+          system: `You are a conceptual neighborhood mapper. You identify related concepts, themes, and ideas that exist in the same intellectual space as the given text. ${langInstruction}`,
+          userPrefix: `Identify 5–7 related concepts that exist in the same conceptual neighborhood as this text. For each: name the concept, describe the nature of the relationship (sibling idea, broader context, parallel example, contrasting concept, etc.), and explain its relevance.\n\nText:\n`,
+        },
+        hidden_connections: {
+          system: `You are a deep semantic analyst. You find hidden, non-obvious, and surprising conceptual connections — things beneath the surface that most readers would miss. ${langInstruction}`,
+          userPrefix: `Find 3–5 hidden or non-obvious connections in this text. Look beyond surface meaning to latent structures, unexpected parallels, and subtle thematic bridges. For each: name the hidden connection and explain why it is significant.\n\nText:\n`,
+        },
+      },
+      distiller: {
+        summarize_thesis: {
+          system: `You are a thesis distillation agent. You compress complex texts to their single essential claim. ${langInstruction}`,
+          userPrefix: `Distill this text into ONE precise thesis sentence that captures the essential claim or insight. Then provide 2–3 sentences of explanation — why this is the core, what supports it, and what it implies.\n\nText:\n`,
+        },
+        extract_key_ideas: {
+          system: `You are a key idea extractor. You identify and articulate the most important ideas in a text with precision. ${langInstruction}`,
+          userPrefix: `Extract the 4–6 most important ideas from this text. For each idea: state it clearly in one sentence, explain what makes it significant, and note how it relates to the text's central argument.\n\nText:\n`,
+        },
+        reduce_to_insight: {
+          system: `You are an insight reduction agent. You find the diamond at the center of complex thinking. ${langInstruction}`,
+          userPrefix: `Reduce this text to its clearest, most essential insight — the single thing that matters most. Remove all complexity. Then explain: what surrounds this insight, what supports it, and what it leads to. Be precise and direct.\n\nText:\n`,
+        },
+        identify_center: {
+          system: `You are a conceptual center finder. You identify the gravitational core that holds everything else together in a piece of thinking. ${langInstruction}`,
+          userPrefix: `Identify the conceptual center of this text — the core idea that everything else revolves around. Describe: the center itself, the inner ring (directly connected ideas), the outer ring (more loosely connected themes), and what holds the whole together.\n\nText:\n`,
+        },
+      },
+      expansion: {
+        expand_argument: {
+          system: `You are an argument expansion agent. You develop ideas into fully structured arguments. ${langInstruction}`,
+          userPrefix: `Expand this into a fully developed argument seed. Structure it as: Thesis statement → Key premises (3–4) → Supporting evidence directions → Counterarguments to address → Conclusion direction. Keep it structured and write-ready.\n\nIdea/note:\n`,
+        },
+        expand_quote: {
+          system: `You are a quote reflection agent. You expand quotes and passages into rich intellectual reflections. ${langInstruction}`,
+          userPrefix: `Take this quote/passage and expand it into a full reflection. Cover: (1) meaning analysis, (2) implications and consequences, (3) connections to broader themes, (4) tensions or complications, (5) how it could be used in writing. Write as a flowing intellectual reflection.\n\nQuote/passage:\n`,
+        },
+        expand_to_draft: {
+          system: `You are a draft expansion agent. You transform notes and concepts into ready-to-write draft starters. ${langInstruction}`,
+          userPrefix: `Expand this concept/note into a draft starter — a strong opening paragraph (100–150 words) that could begin a section or chapter, followed by a 5–7 point outline of where the argument/narrative could go. Make it immediately write-ready.\n\nConcept/note:\n`,
+        },
+        expand_cluster: {
+          system: `You are a thematic outline agent. You transform clusters of related ideas into structured thematic outlines. ${langInstruction}`,
+          userPrefix: `Expand these ideas into a thematic outline for a section or chapter. Structure it as: Theme title → Opening framing → 4–6 major sections with brief descriptions → Closing direction → Suggested connections to develop. Make it a complete structural blueprint.\n\nIdeas/cluster:\n`,
+        },
+      },
+      structuring: {
+        recommend_tags: {
+          system: `You are a tagging specialist. You create precise, useful conceptual tags — not generic ones. ${langInstruction}`,
+          userPrefix: `Suggest 6–10 precise tags for this text. Prioritize conceptual tags over generic ones. For each tag: the tag name, and a one-line explanation of why it fits. Also suggest 2–3 "cluster tags" that could group this with other related notes.\n\nText:\n`,
+        },
+        recommend_collection: {
+          system: `You are a collection and classification agent. You identify where knowledge objects belong in a larger system. ${langInstruction}`,
+          userPrefix: `Recommend which collection(s) or category this text belongs to. Suggest 3 options ranked by fit. For each: the collection name, a brief rationale, and how this text would enrich that collection.\n\nText:\n`,
+        },
+        suggest_note_type: {
+          system: `You are a note type classification agent. You match texts to their most appropriate note type. ${langInstruction}`,
+          userPrefix: `Analyze this text and recommend the most appropriate note type from: idea, concept, argument, quote, question, insight, observation, reflection, scene, hypothesis, character. Suggest the top 2 types with detailed reasoning. Explain what properties make this text fit each type.\n\nText:\n`,
+        },
+        suggest_placement: {
+          system: `You are a structural placement agent. You identify where a piece of thinking belongs within a book structure. ${langInstruction}`,
+          userPrefix: `Suggest where this text belongs in a book structure. Recommend: ideal chapter type (introduction, development, evidence, conclusion, case study, reflection, etc.), position in the arc (early/middle/late), and what should come before and after it. Explain the reasoning.\n\nText:\n`,
+        },
+        suggest_cluster: {
+          system: `You are a knowledge clustering agent. You design ideal intellectual neighborhoods for notes and ideas. ${langInstruction}`,
+          userPrefix: `Design the ideal cluster for this text. Describe: the central note (this text's role), the satellite notes that should surround it (4–6 note types/topics), the connections between satellites, and the outer context ring. Explain the logic of the cluster.\n\nText:\n`,
+        },
+      },
+      tension: {
+        detect_conflicts: {
+          system: `You are a conceptual conflict detector. You find contradictions, tensions, and unresolved oppositions within texts. ${langInstruction}`,
+          userPrefix: `Analyze this text for conceptual conflicts. Identify: internal contradictions (where the text argues against itself), unresolved tensions (things left in productive ambiguity), and explicit oppositions. For each: name it precisely, explain why it matters, and suggest whether to resolve or exploit it.\n\nText:\n`,
+        },
+        show_opposing: {
+          system: `You are an adversarial thinking agent. You construct the strongest possible opposing position to any argument. ${langInstruction}`,
+          userPrefix: `Construct the strongest possible opposing position to the main claim in this text. Argue it rigorously and seriously — as if you genuinely believe the opposite. Then briefly note: what this opposition reveals about weaknesses in the original argument.\n\nText:\n`,
+        },
+        identify_contradictions: {
+          system: `You are a contradiction mapping agent. You find every internal inconsistency in a piece of thinking. ${langInstruction}`,
+          userPrefix: `Find all internal contradictions in this text. For each contradiction: (1) state it precisely — what Claim A says vs what Claim B says, (2) explain why this is a genuine contradiction, (3) suggest how to resolve it OR how to productively exploit the tension.\n\nText:\n`,
+        },
+        expose_tensions: {
+          system: `You are an underdeveloped tension excavator. You find the pressure points and unresolved questions that a text gestures toward but doesn't fully explore. ${langInstruction}`,
+          userPrefix: `Expose the underdeveloped tensions in this text — the points of intellectual pressure that are implied but not explored. For each tension: name it, explain why it matters to the text's core argument, rate how developed it is (1–5), and suggest how to develop it further.\n\nText:\n`,
+        },
+      },
+      relevance: {
+        detect_core: {
+          system: `You are a relevance evaluation agent. You determine whether knowledge objects are core or peripheral to a body of work. ${langInstruction}`,
+          userPrefix: `Evaluate whether this text is CORE or PERIPHERAL to the book context. Provide: a relevance score (1–10), a brief verdict (Core / High Relevance / Moderate / Low / Noise), and a detailed explanation of why. Note what would make it more or less relevant.\n\nText:\n`,
+        },
+        identify_noise: {
+          system: `You are a noise detection agent. You identify what detracts from the signal in a piece of thinking. ${langInstruction}`,
+          userPrefix: `Analyze this text for noise — parts that distract from, dilute, or don't contribute to the core argument. For each noisy element: identify it, explain why it's noise (tangential, redundant, unclear, underdeveloped, etc.), and suggest what to do with it (cut, develop, relocate, reframe).\n\nText:\n`,
+        },
+        show_unused: {
+          system: `You are an unrealized potential detector. You find important ideas that are mentioned but never developed. ${langInstruction}`,
+          userPrefix: `Identify the unused potential in this text — important insights that are mentioned in passing but not developed, ideas that deserve much more attention. For each: name the underdeveloped idea, explain its potential importance, and suggest how to develop it.\n\nText:\n`,
+        },
+        prioritize: {
+          system: `You are a concept prioritization agent. You rank ideas by importance and strategic value. ${langInstruction}`,
+          userPrefix: `Rank all the concepts in this text by importance. Create a clear priority ordering: Tier 1 (load-bearing — the text fails without these), Tier 2 (important but not essential), Tier 3 (supporting material). For each tier, list the concepts with brief justification.\n\nText:\n`,
+        },
+      },
+      transformation: {
+        note_to_draft: {
+          system: `You are a note-to-draft transformation agent. You transform raw notes into polished draft fragments ready for use in writing. ${langInstruction}`,
+          userPrefix: `Transform this note into a draft fragment — a polished, expanded piece of prose (150–250 words) that could be used directly in writing. Keep the core idea but develop it into literary or analytical form. Then suggest: where in a chapter it might best appear.\n\nNote:\n`,
+        },
+        note_to_board: {
+          system: `You are a note-to-board transformation agent. You transform notes into optimal idea board cards. ${langInstruction}`,
+          userPrefix: `Transform this note into an idea board card. Provide: (1) Recommended card type (idea/concept/argument/quote/chapter_seed), (2) Title (max 8 words, punchy), (3) Card content (2–3 sentences, distilled), (4) 3–4 relevant tags, (5) Suggested connections to other potential cards. Format clearly.\n\nNote:\n`,
+        },
+        source_to_note: {
+          system: `You are a source-to-note transformation agent. You extract key insights from source material and transform them into standalone knowledge notes. ${langInstruction}`,
+          userPrefix: `Extract the key insight from this source material and transform it into a standalone note. The note should: (1) be self-contained and meaningful without the source, (2) capture the essential contribution, (3) connect it to the book's context. Then suggest a title, type, and tags for the note.\n\nSource material:\n`,
+        },
+        cluster_to_draft: {
+          system: `You are a cluster-to-draft transformation agent. You transform collections of related ideas into ready-to-write draft seeds. ${langInstruction}`,
+          userPrefix: `Transform this cluster of ideas into a chapter/section draft seed. Provide: (1) A strong opening paragraph (120–150 words), (2) The governing argument or narrative thread, (3) 5–7 development points in order, (4) A suggested closing move. Make it immediately write-ready.\n\nIdea cluster:\n`,
+        },
+        map_to_structure: {
+          system: `You are a map-to-structure transformation agent. You transform note collections into logical book structures. ${langInstruction}`,
+          userPrefix: `Transform this collection of notes/ideas into a book structure — a logical hierarchical outline. Organize into: Part/Chapter titles → Sub-sections → Key arguments per section → Narrative flow logic. Show how the ideas connect into a coherent arc. This should be a real structural blueprint.\n\nNotes/ideas:\n`,
+        },
+      },
+      mapping: {
+        create_local_map: {
+          system: `You are a local concept map agent. You create structured maps of ideas and their immediate relationships. ${langInstruction}`,
+          userPrefix: `Create a local concept map of this text. Structure it as: (1) Central concept, (2) Immediate neighbors — 4–6 directly connected concepts with relationship type, (3) Bridge concepts — ideas that connect two neighbors, (4) Entry point — how a reader enters this map, (5) Exit vectors — where the map leads.\n\nText:\n`,
+        },
+        concept_cluster: {
+          system: `You are a concept cluster agent. You design rich conceptual clusters with multiple rings and bridges. ${langInstruction}`,
+          userPrefix: `Create a concept cluster map for the central idea in this text. Design it as: Core concept → Inner ring (3–4 directly connected concepts + connection type) → Middle ring (4–6 related themes) → Outer ring (broader context concepts) → Bridge concepts (connecting rings). Describe the visual shape and the logic.\n\nText:\n`,
+        },
+        note_constellation: {
+          system: `You are a note constellation agent. You design note networks that form meaningful patterns. ${langInstruction}`,
+          userPrefix: `Design a note constellation for this text. Describe: (1) The central note (this text's role), (2) 5–7 satellite notes that should orbit it (with brief descriptions), (3) Connections between satellites, (4) The constellation's shape and name, (5) How to navigate this constellation from different entry points.\n\nText:\n`,
+        },
+        theme_map: {
+          system: `You are a theme mapping agent. You create comprehensive thematic maps of texts and collections. ${langInstruction}`,
+          userPrefix: `Create a theme map for this text. Identify: Primary themes (1–2 themes the text is fundamentally about), Secondary themes (3–4 important but subordinate themes), Implicit themes (2–3 themes present but unspoken), Thematic tensions (where themes conflict), and Thematic resolution (how themes converge or diverge). Show the relationships.\n\nText:\n`,
+        },
+        moc_skeleton: {
+          system: `You are a Map of Content (MOC) architect. You design MOC notes that serve as navigational hubs in a knowledge system. ${langInstruction}`,
+          userPrefix: `Create a Map of Content (MOC) skeleton for the themes in this text. A MOC is a meta-note that links to all related notes. Design: (1) MOC title, (2) Opening description (2–3 sentences), (3) 10–14 note titles organized by sub-theme, (4) 3–4 connections to other MOCs, (5) A brief navigation guide — how to use this MOC. Format as a real MOC skeleton.\n\nText:\n`,
+        },
+      },
+    };
+
+    const agentFns = agentPrompts[agentType];
+    if (!agentFns) return res.status(400).json({ error: `Unknown agent type: ${agentType}` });
+    const fnDef = agentFns[functionType];
+    if (!fnDef) return res.status(400).json({ error: `Unknown function: ${functionType}` });
+
+    const systemPrompt = fnDef.system;
+    const userPrompt = `${bookCtx}${fnDef.userPrefix}${content.slice(0, 4000)}`;
+
+    // Try premium (OpenAI) first
+    try {
+      const ai = await getOpenAI(req);
+      const model = await getUserModel(req);
+      const completion = await ai.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 1800,
+      });
+      const result = completion.choices[0]?.message?.content || "";
+      const userId = getUserId(req);
+      if (completion.usage?.total_tokens) trackTokens(userId, completion.usage.total_tokens);
+      return res.json({ result });
+    } catch (e: any) {
+      const { code } = openAIErrorMessage(e);
+      if (code !== "no_api_key") {
+        const { status, message } = openAIErrorMessage(e);
+        return res.status(status).json({ error: message, code });
+      }
+    }
+
+    // Fallback: free mode via Pollinations
+    try {
+      const seed = Math.floor(Math.random() * 99999);
+      const pollinationsRes = await fetch("https://text.pollinations.ai/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          model: "openai",
+          seed,
+          private: true,
+        }),
+        signal: AbortSignal.timeout(35000),
+      });
+      if (!pollinationsRes.ok) {
+        return res.status(502).json({ error: "free_unavailable", message: `Free AI unavailable (${pollinationsRes.status})` });
+      }
+      let content2 = (await pollinationsRes.text()).trim();
+      if (content2.startsWith("{") || content2.startsWith("[")) {
+        try { const p = JSON.parse(content2); content2 = p?.choices?.[0]?.message?.content || p?.content || content2; } catch {}
+      }
+      return res.json({ result: content2 });
+    } catch (e: any) {
+      return res.status(500).json({ error: "cognitive_agent_error", message: e?.message || "Agent error" });
+    }
+  });
+
   // ───── EXPORT ROUTES ─────
 
   function blocksToText(blocks: any[]): string {

@@ -1,0 +1,227 @@
+NOTES SYSTEM 2.0
+
+The Notes section must become one of the most powerful parts of the platform.
+
+It should combine:
+
+speed of Apple Notes
+
+structural intelligence of Obsidian
+
+project context awareness of a writing tool
+
+Notes must stop being generic note pages and become atomic units of thought.
+
+Each note should be usable as:
+
+idea
+
+insight
+
+question
+
+quote
+
+concept
+
+observation
+
+scene seed
+
+argument seed
+
+character thought
+
+worldbuilding fragment
+
+research note
+
+personal reflection
+
+future chapter seed
+
+5.1 Two note levels
+
+The system must support two levels of notes:
+
+Quick Notes
+
+Fast, low-friction notes for immediate capture.
+
+Use cases:
+
+sudden idea
+
+phrase
+
+title concept
+
+random thought
+
+insight from walk
+
+momentary reflection
+
+These should be extremely fast to create.
+
+Structured Notes
+
+Richer notes with metadata, relationships, and project-level meaning.
+
+These should support:
+
+note type
+
+status
+
+tags
+
+links
+
+backlinks
+
+related sources
+
+related drafts
+
+related board items
+
+related chapters conceptually
+
+project assignment
+
+collection assignment
+
+5.2 Note metadata
+
+Each note must support structured metadata:
+
+id
+
+title
+
+content
+
+note type
+
+status
+
+project
+
+collection
+
+tags
+
+semantic tags
+
+linked notes
+
+backlinks
+
+linked sources
+
+linked drafts
+
+linked board items
+
+linked themes
+
+importance
+
+created from
+
+last edited
+
+usage state
+
+Possible note statuses
+
+inbox
+
+active
+
+developed
+
+used
+
+archived
+
+Possible note types
+
+quick thought
+
+concept
+
+question
+
+insight
+
+quote
+
+observation
+
+scene seed
+
+argument seed
+
+character note
+
+research note
+
+reflection
+
+5.3 Inbox system
+
+Add a dedicated Inbox flow for notes.
+
+All fast captured notes should land in Inbox by default.
+
+From Inbox, the user should be able to:
+
+keep as is
+
+assign project
+
+convert to structured note
+
+tag
+
+connect to another note
+
+send to draft
+
+send to board
+
+archive
+
+delete
+
+This is important for reducing creative friction and avoiding chaos.
+
+5.4 Collections instead of simple folders
+
+Notes should support Collections in addition to or instead of rigid folder logic.
+
+Collections are flexible thematic containers.
+
+Examples:
+
+Core Philosophy
+
+Characters
+
+Metaphors
+
+Conflicts
+
+Research Ideas
+
+Book Fragments
+
+Future Project
+
+Unused Insights
+
+A note can belong to more than one collection.
+
+Collections should feel more flexible than folders and more useful for writers.
