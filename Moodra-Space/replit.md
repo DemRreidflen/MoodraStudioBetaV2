@@ -16,7 +16,20 @@ Moodra is a next-gen AI writing environment for serious authors. The platform co
 - **AI Co-author**: Streaming SSE generation — continue, develop, improve, ideas; free Pollinations toggle; regenerate button; paste-own-text editing; deeper style analysis (pov, rhythm, dialogueStyle, styleInstruction); scrollable output area; **Deepen Analysis** — collapsible panel with optional custom prompt that re-runs style analysis with added nuance
 - **Hypothesis system**: Track claims with statuses (hypothesis, testing, confirmed, refuted) + AI generation
 - **AI Research**: 6 categorized source suggestions per query
-- **Idea Board**: Canvas with draggable cards, SVG connections (support, contradict, cause, develop)
+- **Idea Board** (FigJam-inspired cognitive layer):
+  - **13 node types**: idea, concept, chapter, hypothesis, argument, counterargument, quote, source, character, plot (core cards) + sticky, note_card, source_card, draft_card, chapter_seed, section, free_text, shape (extended)
+  - **Sticky notes**: FigJam-style colored squares (8 colors), folded corner, no header, freeform text
+  - **Sections/frames**: Transparent containers with colored title bar, renders behind cards (z-index 1)
+  - **Shapes**: rect, circle, diamond, triangle, arrow — rendered as styled divs/SVG
+  - **Semantic linked cards**: note_card / source_card link to real DB objects (linkedId + linkedType); clicking opens full original content popup; library tab shows live Notes/Sources from DB
+  - **Library tab** in left panel: two sub-tabs (Notes/Sources), one-click "Add to board" creates a linked card; shows "on board" state
+  - **Connections**: SVG curved edges (support/contradict/cause/develop/effect), live draw mode, labeled, deletable
+  - **Align toolbar**: 6-axis alignment (left/center/right/top/middle/bottom) appears when ≥2 nodes selected
+  - **Duplicate**: D key shortcut + button on each node
+  - **Keyboard shortcuts**: D = duplicate, Delete = remove selected, Escape = deselect
+  - **Quick-add toolbar**: sticky / section / shape buttons in top toolbar
+  - **3-tab Add dialog**: Object cards / Semantic cards / Free objects — with color pickers and shape picker
+  - **Board data**: stored as JSON blob in books.boardData, no DB migrations needed
 - **Character database**: For fiction — biographies, traits, goals, conflicts
 - **Notes & ideas**: Sticker-style colored cards (7 colors), drag-drop reorder (@dnd-kit), status chips (idea/draft/wip/done), list/card toggle; **quick-capture bar** (Enter to save instantly, Tab to expand to full dialog, click type icon to cycle type); **search filter** across title/content/tags; auto-resize textarea; Ctrl+Enter to save in dialog
 - **Export**: EPUB and PDF (A5 book template with cover, TOC, chapter headers, page numbers, callout blocks)

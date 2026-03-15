@@ -292,12 +292,12 @@ function NoteCard({ note, onEdit, onDelete, onPin }: {
   const importance = (note as any).importance;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: note.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  const dragStyle = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, background: col.bg, border: `1px solid ${col.border}` }}
+      style={{ ...dragStyle, background: col.bg, border: `1px solid ${col.border}` }}
       onClick={() => onEdit(note)}
       className="relative rounded-2xl p-3.5 group flex flex-col gap-2 cursor-pointer transition-all hover:shadow-sm active:scale-[0.985]"
     >
