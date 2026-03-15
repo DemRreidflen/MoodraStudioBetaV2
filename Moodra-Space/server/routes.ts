@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema, insertAuthorRoleModelSchema } from "@shared/schema";
+import { assembleNoteContext, buildStructuredPrompt } from "./promptEngine";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
