@@ -174,7 +174,7 @@ export function CanvasEditor({
     try { const v = Number(localStorage.getItem("moodra_editorFontScale")); return v >= 70 && v <= 160 ? v : 100; } catch { return 100; }
   });
   const [maxWidth, setMaxWidthRaw] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 768; } catch { return 768; }
+    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 1010; } catch { return 1010; }
   });
 
   const setFontScale = (updater: number | ((v: number) => number)) => {
@@ -294,7 +294,7 @@ export function CanvasEditor({
             className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"
           ><Minus className="h-3 w-3" /></button>
           <button
-            onClick={() => setMaxWidth(768)}
+            onClick={() => setMaxWidth(1010)}
             className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
             <ChevronsLeftRight className="h-3 w-3" />

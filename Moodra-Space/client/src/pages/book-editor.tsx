@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { BookSidebar } from "@/components/book-sidebar";
 import { ChapterEditor } from "@/components/chapter-editor";
-import { CanvasEditor } from "@/components/canvas-editor";
 import { AiPanel } from "@/components/ai-panel";
+import { CanvasEditor } from "@/components/canvas-editor";
 import { CharactersPanel } from "@/components/characters-panel";
 import { NotesPanel } from "@/components/notes-panel";
 import { ResearchPanel } from "@/components/research-panel";
@@ -20,7 +20,8 @@ import { LanguagePicker } from "@/components/language-picker";
 import {
   ArrowLeft, Sparkles, Users, BookOpen, FileText,
   Settings, Brain, Download, Columns2,
-  File, LayoutList, X, FileText as FileText2, PenLine,
+  X, FileText as FileText2, PenLine,
+  File, LayoutList,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -188,7 +189,7 @@ export default function BookEditor() {
             ))}
           </div>
 
-          {/* View mode toggle — visible only in editor tab */}
+          {/* View mode toggle — editor tab only */}
           {activeTab === "editor" && (
             <div className="flex items-center bg-secondary/60 rounded-xl p-0.5 flex-shrink-0">
               <Tooltip>
@@ -205,7 +206,7 @@ export default function BookEditor() {
                     <File className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Листы — одна глава</TooltipContent>
+                <TooltipContent side="bottom" className="text-xs">Одна глава</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -221,7 +222,7 @@ export default function BookEditor() {
                     <LayoutList className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Полотно — все главы</TooltipContent>
+                <TooltipContent side="bottom" className="text-xs">Все главы</TooltipContent>
               </Tooltip>
             </div>
           )}
@@ -324,6 +325,7 @@ export default function BookEditor() {
               onToggleDeepWritingMode={() => setIsDeepWritingMode(!isDeepWritingMode)}
             />
           )}
+
 
           {activeTab === "editor" && viewMode === "canvas" && (
             <CanvasEditor

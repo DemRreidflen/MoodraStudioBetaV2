@@ -13,7 +13,7 @@ import {
   Feather, Layers, Music2, Hash, Target, Heart, Wrench, AlignLeft, Eye,
   Save, ArrowLeft, Clock, AlignCenter, BarChart3, Lightbulb, RefreshCw,
   Check, Trash2, Link2, BookCopy, SendToBack, GitBranch, Wand2,
-  Minus, ChevronsLeftRight,
+  Minus, ChevronsLeftRight, Timer, Keyboard,
 } from "lucide-react";
 import { BlockEditor, Block, blocksToPlainText } from "@/components/block-editor";
 import { RoleModelsTab } from "@/components/role-models-tab";
@@ -483,11 +483,26 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
     queryFn: () => apiRequest("GET", `/api/books/${bookId}/role-models`),
   });
 
+  const useInBookMutation = useMutation({
+    mutationFn: (model: AuthorRoleModel) =>
+      apiRequest("PATCH", `/api/books/${bookId}`, {
+        narrativeContext: {
+          ...(book.narrativeContext || {}),
+          writingStyleNotes: model.styleInstruction || model.stylePatterns || "",
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId] });
+      toast({ title: lang === "ru" ? "Стиль добавлен в контекст книги" : lang === "ua" ? "Стиль додано до контексту книги" : "Style added to book context" });
+      setSelectedModel(null);
+    },
+  });
+
   const deepAnalyzeMutation = useMutation({
     mutationFn: ({ id, rawSourceText }: { id: number; rawSourceText?: string }) =>
       apiRequest("POST", `/api/role-models/${id}/deep-analyze`, {
         lang, bookTitle: book.title, bookMode: book.mode,
-        rawSourceText: rawSourceText || undefined,
+        rawSourceText: rawSourceText || `Analyze the writing style of this author for the book "${book.title}". Infer stylistic patterns based on the author name and context.`,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "role-models"] });
@@ -689,6 +704,22 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
                   );
                 })}
 
+                {/* Use in book */}
+                {selectedModel.analysisStatus === "analyzed" && (selectedModel.styleInstruction || selectedModel.stylePatterns) && (
+                  <div className="pt-2 border-t border-border/30 flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground flex-1">{lang === "ru" ? "Применить стиль этого автора к вашей книге как ориентир для ИИ." : lang === "ua" ? "Застосувати стиль цього автора до вашої книги як орієнтир для ІІ." : "Apply this author's style to your book as an AI reference."}</p>
+                    <button
+                      onClick={() => useInBookMutation.mutate(selectedModel)}
+                      disabled={useInBookMutation.isPending}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0 transition-all hover:opacity-90 disabled:opacity-50"
+                      style={{ background: "linear-gradient(135deg, #8B5CF6, #6366F1)" }}
+                    >
+                      {useInBookMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookCopy className="h-4 w-4" />}
+                      {lang === "ru" ? "Использовать в книге" : lang === "ua" ? "Використати в книзі" : "Use in book"}
+                    </button>
+                  </div>
+                )}
+
                 {/* Raw source */}
                 {selectedModel.rawSourceText && (
                   <div className="rounded-xl border border-border/50 overflow-hidden">
@@ -881,11 +912,19 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
   const [aiTip, setAiTip] = useState("");
   const [tipLoading, setTipLoading] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isTypewriterMode, setIsTypewriterMode] = useState(false);
+  const [sprintExpanded, setSprintExpanded] = useState(false);
+  const [sprintGoal, setSprintGoal] = useState("500");
+  const [sprintMin, setSprintMin] = useState("25");
+  const [sprintActive, setSprintActive] = useState(false);
+  const [sprintSecondsLeft, setSprintSecondsLeft] = useState(0);
+  const sprintTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [fontScale, setFontScaleRaw] = useState<number>(() => {
     try { const v = Number(localStorage.getItem("moodra_editorFontScale")); return v >= 70 && v <= 160 ? v : 100; } catch { return 100; }
   });
   const [maxWidth, setMaxWidthRaw] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 768; } catch { return 768; }
+    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 1010; } catch { return 1010; }
   });
   const setFontScale = (u: number | ((v: number) => number)) => setFontScaleRaw(prev => { const n = typeof u === "function" ? u(prev) : u; try { localStorage.setItem("moodra_editorFontScale", String(n)); } catch {} return n; });
   const setMaxWidth = (u: number | ((v: number) => number)) => setMaxWidthRaw(prev => { const n = typeof u === "function" ? u(prev) : u; try { localStorage.setItem("moodra_editorMaxWidth", String(n)); } catch {} return n; });
@@ -917,6 +956,45 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
     }
     return () => clearTimeout(saveTimerRef.current);
   }, [isDirty, save]);
+
+  const startSprint = () => {
+    const mins = parseInt(sprintMin) || 25;
+    setSprintSecondsLeft(mins * 60);
+    setSprintActive(true);
+    setSprintExpanded(false);
+    sprintTimerRef.current = setInterval(() => {
+      setSprintSecondsLeft(v => {
+        if (v <= 1) { clearInterval(sprintTimerRef.current!); sprintTimerRef.current = null; setSprintActive(false); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  };
+
+  const stopSprint = () => {
+    if (sprintTimerRef.current) { clearInterval(sprintTimerRef.current); sprintTimerRef.current = null; }
+    setSprintActive(false);
+    setSprintSecondsLeft(0);
+  };
+
+  useEffect(() => { return () => { if (sprintTimerRef.current) clearInterval(sprintTimerRef.current); }; }, []);
+
+  useEffect(() => {
+    if (!isTypewriterMode) return;
+    const handleKey = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      if (!rect || rect.top === 0) return;
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const delta = rect.top - (containerRect.top + containerRect.height / 2);
+      container.scrollBy({ top: delta, behavior: "smooth" });
+    };
+    document.addEventListener("keyup", handleKey);
+    return () => document.removeEventListener("keyup", handleKey);
+  }, [isTypewriterMode]);
 
   const getReadingTime = () => {
     const mins = Math.ceil(wordCount / 200);
@@ -1055,7 +1133,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
         </div>
       </div>
 
-      {/* Toolbar row — font scale + max width */}
+      {/* Toolbar row — font scale + max width + typewriter + sprint */}
       <div className="flex-shrink-0 border-b border-border/30 px-4 py-2 flex items-center gap-3 bg-background/60">
         <div className="flex items-center gap-0.5">
           <button onClick={() => setFontScale(v => Math.max(70, v - 5))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-bold">A<sup className="text-[7px]">–</sup></button>
@@ -1067,6 +1145,57 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           <button onClick={() => setMaxWidth(v => Math.max(480, v - 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Minus className="h-3 w-3" /></button>
           <button onClick={() => setMaxWidth(768)} className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"><ChevronsLeftRight className="h-3 w-3" /><span className="tabular-nums w-8 text-center">{maxWidth}</span></button>
           <button onClick={() => setMaxWidth(v => Math.min(1010, v + 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Plus className="h-3 w-3" /></button>
+        </div>
+        <div className="w-px h-4 bg-border/60" />
+        {/* Typewriter mode */}
+        <button
+          onClick={() => setIsTypewriterMode(v => !v)}
+          className={`h-7 w-7 flex items-center justify-center rounded-lg transition-colors ${isTypewriterMode ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}
+          title={t.typewriterMode ?? "Typewriter mode"}
+        >
+          <Keyboard className="h-3.5 w-3.5" />
+        </button>
+        {/* Sprint */}
+        <div className="relative">
+          <button
+            onClick={() => { if (sprintActive) return; setSprintExpanded(v => !v); }}
+            className={`h-7 flex items-center gap-1.5 px-2 rounded-lg transition-colors text-xs ${sprintActive ? "text-orange-500 bg-orange-50 dark:bg-orange-950/30" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}
+            title={t.sprintLabel ?? "Sprint"}
+          >
+            {sprintActive ? (
+              <>
+                <Clock className="h-3.5 w-3.5 animate-pulse" />
+                <span className="font-mono text-[11px]">{String(Math.floor(sprintSecondsLeft / 60)).padStart(2,"0")}:{String(sprintSecondsLeft % 60).padStart(2,"0")}</span>
+              </>
+            ) : (
+              <Timer className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {sprintActive && (
+            <button onClick={stopSprint} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-destructive/80 flex items-center justify-center text-white hover:bg-destructive transition-colors">
+              <X className="h-2 w-2" />
+            </button>
+          )}
+          {sprintExpanded && !sprintActive && (
+            <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-border bg-background shadow-xl p-3 space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.sprintLabel ?? "Sprint"}</p>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <p className="text-[10px] text-muted-foreground mb-1">{t.sprintGoalPlaceholder ?? "Word goal"}</p>
+                  <input type="number" min={50} max={10000} step={50} value={sprintGoal} onChange={e => setSprintGoal(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] text-muted-foreground mb-1">Min</p>
+                  <select value={sprintMin} onChange={e => setSprintMin(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none">
+                    {[5,10,15,20,25,30,45,60].map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+              </div>
+              <button onClick={startSprint} className="w-full py-1.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: "#F96D1C" }}>
+                <Zap className="h-3 w-3" /> {t.sprintStart ?? "Start"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1081,7 +1210,7 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
 
       {/* Block editor + optional AI panel */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-hidden" style={{ zoom: fontScale / 100 }}>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ zoom: fontScale / 100 }}>
           <div style={{ maxWidth, margin: "0 auto" }}>
             <BlockEditor
               key={draft.id}
@@ -1091,15 +1220,13 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           </div>
         </div>
         {showAiPanel && (
-          <div className="w-[320px] flex-shrink-0 border-l border-border/50 overflow-y-auto">
-            <AiPanel
-              book={book}
-              chapter={null}
-              context={blocksToPlainText(blocks)}
-              chapters={chapters}
-              onInsert={null}
-            />
-          </div>
+          <AiPanel
+            book={book}
+            chapter={null}
+            context={blocksToPlainText(blocks)}
+            chapters={chapters}
+            onInsert={null}
+          />
         )}
       </div>
 

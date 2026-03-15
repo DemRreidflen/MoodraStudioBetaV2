@@ -260,6 +260,7 @@ const NOTE_STATUSES = [
 ] as const;
 
 const NOTE_COLORS = [
+  { value: "none",   bg: "hsl(var(--card))",       border: "hsl(var(--border))",    text: "hsl(var(--foreground))", clip: "hsl(var(--muted-foreground))" },
   { value: "yellow", bg: "#FEFBEE", border: "#EDD98C", text: "#5C4A1E", clip: "#C4900A" },
   { value: "blue",   bg: "#F0F6FF", border: "#BCCEEA", text: "#2A3F5E", clip: "#4272A6" },
   { value: "purple", bg: "#F5F2FF", border: "#C9C0E8", text: "#3B2760", clip: "#6A52A8" },
@@ -744,6 +745,11 @@ export function NotesPanel({ bookId }: { bookId: number }) {
   const [filterType, setFilterType] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [collectionsOpen, setCollectionsOpen] = useState(true);
+  const [showNewColInput, setShowNewColInput] = useState(false);
+  const [newColName, setNewColName] = useState("");
+  const [customCollections, setCustomCollections] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`moodra_custom_cols_${bookId}`) || "[]"); } catch { return []; }
+  });
   const [sidebarWidth, setSidebarWidth] = useState(160);
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingSidebar = useRef(false);
@@ -799,10 +805,21 @@ export function NotesPanel({ bookId }: { bookId: number }) {
     ? localOrder.map(id => notes.find(n => n.id === id)).filter(Boolean) as Note[]
     : notes;
 
-  // Extract unique collections
-  const collections = Array.from(new Set(
+  // Extract unique collections (merge note-collections + custom empty ones)
+  const noteCollections = Array.from(new Set(
     notes.map(n => (n as any).collection).filter(Boolean)
   )) as string[];
+  const collections = Array.from(new Set([...customCollections, ...noteCollections]));
+
+  const addCustomCollection = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || collections.includes(trimmed)) return;
+    const updated = [...customCollections, trimmed];
+    setCustomCollections(updated);
+    try { localStorage.setItem(`moodra_custom_cols_${bookId}`, JSON.stringify(updated)); } catch {}
+    setSidebarView(trimmed);
+    setCollectionsOpen(true);
+  };
 
   // Inbox count
   const inboxCount = notes.filter(n => (n as any).status === "inbox").length;
@@ -867,22 +884,6 @@ export function NotesPanel({ bookId }: { bookId: number }) {
         <StickyNote className="h-3.5 w-3.5 text-primary flex-shrink-0" />
         <h2 className="font-bold text-sm flex-1">{s.title}</h2>
         <span className="text-[11px] text-muted-foreground/50">{s.count(notes.length)}</span>
-        <div className="flex items-center rounded-lg border border-border overflow-hidden">
-          <button
-            onClick={() => setViewMode("list")}
-            className="p-1.5 transition-colors"
-            style={{ background: viewMode === "list" ? "rgba(249,109,28,0.1)" : "transparent", color: viewMode === "list" ? "#F96D1C" : "#888" }}
-          >
-            <LayoutList className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("cards")}
-            className="p-1.5 transition-colors"
-            style={{ background: viewMode === "cards" ? "rgba(249,109,28,0.1)" : "transparent", color: viewMode === "cards" ? "#F96D1C" : "#888" }}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-        </div>
         <button
           onClick={() => { setEditNote(undefined); setDialogPrefill(""); setDialogPrefillStatus("active"); setShowDialog(true); }}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold flex-shrink-0 transition-colors"
@@ -931,15 +932,36 @@ export function NotesPanel({ bookId }: { bookId: number }) {
                 {collectionsOpen ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
               </button>
               <button
-                onClick={() => { setDialogPrefill(""); setEditNote(undefined); setDialogPrefillStatus("active"); setShowDialog(true); }}
+                onClick={() => { setShowNewColInput(true); setCollectionsOpen(true); setNewColName(""); }}
                 className="w-4 h-4 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground/50 hover:text-foreground transition-colors flex-shrink-0"
-                title={s.newBtn}
+                title="New collection"
               >
                 <Plus className="h-2.5 w-2.5" />
               </button>
             </div>
             {collectionsOpen && (
               <div>
+                {showNewColInput && (
+                  <div className="flex items-center gap-1 px-3 py-1">
+                    <input
+                      autoFocus
+                      value={newColName}
+                      onChange={e => setNewColName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { addCustomCollection(newColName); setShowNewColInput(false); setNewColName(""); }
+                        if (e.key === "Escape") { setShowNewColInput(false); setNewColName(""); }
+                      }}
+                      placeholder="Collection name…"
+                      className="flex-1 text-[11px] bg-secondary/60 border border-primary/40 rounded-md px-2 py-0.5 outline-none"
+                    />
+                    <button
+                      onClick={() => { addCustomCollection(newColName); setShowNewColInput(false); setNewColName(""); }}
+                      className="w-5 h-5 flex items-center justify-center rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex-shrink-0"
+                    >
+                      <Check className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
                 {collections.map(col => (
                   <button
                     key={col}
@@ -958,7 +980,7 @@ export function NotesPanel({ bookId }: { bookId: number }) {
                     </span>
                   </button>
                 ))}
-                {collections.length === 0 && (
+                {collections.length === 0 && !showNewColInput && (
                   <p className="px-4 py-2 text-[10px] text-muted-foreground/50">{s.noCollection}</p>
                 )}
               </div>
@@ -1083,8 +1105,8 @@ export function NotesPanel({ bookId }: { bookId: number }) {
           <div className="flex-1 overflow-y-auto">
             <div className="p-3">
               {isLoading ? (
-                <div className={viewMode === "cards" ? "grid grid-cols-2 gap-2" : "space-y-2"}>
-                  {Array.from({ length: 4 }).map((_, i) => (
+                <div className={viewMode === "cards" ? "grid grid-cols-3 gap-2" : "space-y-2"}>
+                  {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="h-36 bg-muted animate-pulse rounded-xl" />
                   ))}
                 </div>
@@ -1109,7 +1131,7 @@ export function NotesPanel({ bookId }: { bookId: number }) {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={sorted.map(n => n.id)} strategy={rectSortingStrategy}>
                     {viewMode === "cards" ? (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {sorted.map(note => (
                           <NoteCard
                             key={note.id}

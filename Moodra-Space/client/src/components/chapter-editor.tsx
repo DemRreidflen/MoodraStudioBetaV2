@@ -535,7 +535,7 @@ export function ChapterEditor({
     try { const v = Number(localStorage.getItem("moodra_editorFontScale")); return v >= 70 && v <= 160 ? v : 100; } catch { return 100; }
   });
   const [editorMaxWidth, setEditorMaxWidthRaw] = useState<number>(() => {
-    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 768; } catch { return 768; }
+    try { const v = Number(localStorage.getItem("moodra_editorMaxWidth")); return v >= 480 && v <= 1010 ? v : 1010; } catch { return 1010; }
   });
   const setEditorFontScale = (updater: number | ((v: number) => number)) => {
     setEditorFontScaleRaw(prev => {
@@ -1041,7 +1041,7 @@ export function ChapterEditor({
               title={s.editorNarrow}
             ><Minus className="h-3 w-3" /></button>
             <button
-              onClick={() => setEditorMaxWidth(768)}
+              onClick={() => setEditorMaxWidth(1010)}
               className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
               title="Сбросить ширину редактора"
             >
