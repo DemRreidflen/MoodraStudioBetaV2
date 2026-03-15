@@ -100,14 +100,16 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
 
   const [visible, setVisible] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
-  const [selectedText, setSelectedText] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
   const [showTranslatePicker, setShowTranslatePicker] = useState(false);
   const [showToneInput, setShowToneInput] = useState(false);
   const [toneInstruction, setToneInstruction] = useState("");
   const [showNoApi, setShowNoApi] = useState(false);
+
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const subPanelOpenRef = useRef(false);
+  // Always-current copies (avoid stale closures)
+  const selectedTextRef = useRef("");
+  const isMouseDownOnToolbar = useRef(false);
 
   const ACTIONS = [
     { mode: "improve",    label: s.improve,    icon: Wand2,       color: "#818CF8" },
@@ -119,12 +121,10 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     { mode: "fix-grammar",label: s.fixGrammar, icon: SpellCheck,  color: "#6EE7B7" },
   ];
 
-  useEffect(() => {
-    subPanelOpenRef.current = showToneInput || showTranslatePicker || showNoApi;
-  }, [showToneInput, showTranslatePicker, showNoApi]);
-
   const handleSelectionChange = useCallback(() => {
-    if (subPanelOpenRef.current) return;
+    // Don't react to selection changes while we're clicking inside the toolbar
+    if (isMouseDownOnToolbar.current) return;
+
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
       setVisible(false);
@@ -153,7 +153,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       return;
     }
 
-    setSelectedText(text);
+    selectedTextRef.current = text;
     const toolbarWidth = 500;
     let left = rangeRect.left + rangeRect.width / 2 - toolbarWidth / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - toolbarWidth - 8));
@@ -168,19 +168,31 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
   }, [handleSelectionChange]);
 
+  // Close sub-panels when clicking outside toolbar
   useEffect(() => {
-    const hide = (e: MouseEvent) => {
-      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+    const onMouseDown = (e: MouseEvent) => {
+      if (toolbarRef.current && toolbarRef.current.contains(e.target as Node)) {
+        isMouseDownOnToolbar.current = true;
+      } else {
+        isMouseDownOnToolbar.current = false;
         setShowTranslatePicker(false);
         setShowToneInput(false);
       }
     };
-    document.addEventListener("mousedown", hide);
-    return () => document.removeEventListener("mousedown", hide);
+    const onMouseUp = () => {
+      isMouseDownOnToolbar.current = false;
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
   }, []);
 
   const runAction = useCallback(async (mode: string, extraParams?: Record<string, string>) => {
-    if (!selectedText || loading) return;
+    const text = selectedTextRef.current;
+    if (!text || loading) return;
     if (isFreeMode) { setShowNoApi(true); return; }
     setLoading(mode);
     setShowTranslatePicker(false);
@@ -190,7 +202,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: selectedText,
+          text,
           mode,
           bookTitle: bookTitle || "",
           bookMode: bookMode || "fiction",
@@ -200,13 +212,13 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "error");
-      onResult(selectedText, data.improved || "", mode);
+      onResult(text, data.improved || "", mode);
       setVisible(false);
     } catch {
     } finally {
       setLoading(null);
     }
-  }, [selectedText, loading, isFreeMode, bookTitle, bookMode, onResult]);
+  }, [loading, isFreeMode, bookTitle, bookMode, onResult]);
 
   const handleActionClick = useCallback((mode: string) => {
     if (isFreeMode) {
@@ -234,6 +246,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       className="fixed z-[9999] flex flex-col gap-1"
       style={{ top: position.top, left: position.left }}
       onMouseDown={e => {
+        // Keep text selection; allow inputs to focus normally
         if ((e.target as HTMLElement).tagName !== "INPUT") e.preventDefault();
       }}
     >
