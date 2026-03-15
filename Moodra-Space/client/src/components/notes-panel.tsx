@@ -311,19 +311,12 @@ function NoteCard({ note, onEdit, onDelete, onPin }: {
         <GripVertical className="h-3 w-3" style={{ color: col.clip }} />
       </div>
 
-      {/* Top row: type + date + pin */}
-      <div className="flex items-center justify-between gap-1 pl-3">
-        <div className="flex items-center gap-1">
-          <Icon className="h-2.5 w-2.5 flex-shrink-0" style={{ color: type.accent }} />
-          {importance === "core" && <span className="text-[8px] font-bold text-red-500">●</span>}
-          {importance === "high" && <span className="text-[8px] font-bold text-amber-500">●</span>}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {isPinned && <Pin className="h-2.5 w-2.5" style={{ color: col.clip }} />}
-          <span className="text-[9px] font-medium" style={{ color: `${col.text}70` }}>
-            {format(new Date(note.updatedAt), "d MMM", { locale: DATE_LOCALES[lang] })}
-          </span>
-        </div>
+      {/* Top-right: pin + date */}
+      <div className="flex items-center justify-end gap-1.5">
+        {isPinned && <Pin className="h-2.5 w-2.5" style={{ color: col.clip }} />}
+        <span className="text-[9px] font-medium" style={{ color: `${col.text}70` }}>
+          {format(new Date(note.updatedAt), "d MMM", { locale: DATE_LOCALES[lang] })}
+        </span>
       </div>
 
       {/* Title */}
@@ -502,9 +495,9 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
       setType(note?.type || "idea");
       setTags(note?.tags || "");
       setColor((note as any)?.color || "yellow");
-      setStatus((note as any)?.status || prefillStatus || "active");
+      setStatus((note as any)?.status || prefillStatus || "");
       setCollection((note as any)?.collection || "");
-      setImportance((note as any)?.importance || "normal");
+      setImportance((note as any)?.importance || "");
       setIsPinned((note as any)?.isPinned === "true");
     }
   }, [open, note?.id, prefillTitle, prefillStatus]);

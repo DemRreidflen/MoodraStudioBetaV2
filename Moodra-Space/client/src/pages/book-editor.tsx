@@ -8,20 +8,19 @@ import { useToast } from "@/hooks/use-toast";
 import { BookSidebar } from "@/components/book-sidebar";
 import { ChapterEditor } from "@/components/chapter-editor";
 import { AiPanel } from "@/components/ai-panel";
-import { CanvasEditor } from "@/components/canvas-editor";
 import { CharactersPanel } from "@/components/characters-panel";
 import { NotesPanel } from "@/components/notes-panel";
 import { ResearchPanel } from "@/components/research-panel";
 import { BookSettings } from "@/components/book-settings";
 import { IdeaBoard } from "@/components/idea-board";
 import { LayoutMode } from "@/components/layout-mode";
+import { CanvasEditor } from "@/components/canvas-editor";
 import { FocusTimer } from "@/components/focus-timer";
 import { LanguagePicker } from "@/components/language-picker";
 import {
   ArrowLeft, Sparkles, Users, BookOpen, FileText,
   Settings, Brain, Download, Columns2,
-  X, FileText as FileText2, PenLine,
-  File, LayoutList,
+  X, FileText as FileText2, PenLine, File, LayoutList,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -30,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export type EditorTab = "editor" | "characters" | "notes" | "research" | "board" | "layout" | "settings";
-type ViewMode = "sheets" | "canvas";
+export type ViewMode = "sheets" | "canvas";
 
 function CoverDot({ book }: { book: Book }) {
   if (book.coverImage) {
@@ -53,12 +52,12 @@ export default function BookEditor() {
   const [, navigate] = useLocation();
   const bookId = Number(params?.id);
   const [activeTab, setActiveTab] = useState<EditorTab>("editor");
+  const [viewMode, setViewMode] = useState<ViewMode>("sheets");
   const [selectedChapterId, setSelectedChapterId] = useState<number | null>(null);
   const [showAI, setShowAI] = useState(true);
   const [isDeepWritingMode, setIsDeepWritingMode] = useState(false);
   const [aiContext, setAiContext] = useState("");
   const [aiInsertCallback, setAiInsertCallback] = useState<((text: string) => void) | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("sheets");
 
   const { data: book, isLoading: bookLoading } = useQuery<Book>({
     queryKey: ["/api/books", bookId],
@@ -189,6 +188,8 @@ export default function BookEditor() {
             ))}
           </div>
 
+          <div className="h-4 w-px bg-border/60 flex-shrink-0" />
+
           {/* View mode toggle — editor tab only */}
           {activeTab === "editor" && (
             <div className="flex items-center bg-secondary/60 rounded-xl p-0.5 flex-shrink-0">
@@ -201,7 +202,6 @@ export default function BookEditor() {
                         ? "bg-background shadow-apple-sm text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    data-testid="view-sheets"
                   >
                     <File className="h-3.5 w-3.5" />
                   </button>
@@ -217,7 +217,6 @@ export default function BookEditor() {
                         ? "bg-background shadow-apple-sm text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
-                    data-testid="view-canvas"
                   >
                     <LayoutList className="h-3.5 w-3.5" />
                   </button>
@@ -326,7 +325,6 @@ export default function BookEditor() {
             />
           )}
 
-
           {activeTab === "editor" && viewMode === "canvas" && (
             <CanvasEditor
               chapters={chapters}
@@ -340,6 +338,7 @@ export default function BookEditor() {
               }}
             />
           )}
+
 
           {activeTab === "characters" && <CharactersPanel bookId={bookId} />}
           {activeTab === "notes" && <NotesPanel bookId={bookId} />}
@@ -358,7 +357,7 @@ export default function BookEditor() {
             onInsert={aiInsertCallback}
           />
         )}
-        {showAI && !isDeepWritingMode && (activeTab === "notes" || activeTab === "board") && (
+        {showAI && !isDeepWritingMode && (activeTab === "notes" || activeTab === "board" || activeTab === "research") && (
           <AiPanel
             book={book}
             chapter={null}

@@ -309,8 +309,14 @@ function CreateRoleModelDialog({ open, onClose, bookId, book }: {
       setAnalysis(result);
       setStep("done");
     } catch (e: any) {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "role-models"] });
       setStep("form");
-      if (!handleAiError(e)) toast({ title: "Ошибка анализа", variant: "destructive" });
+      onClose();
+      toast({
+        title: lang === "ru" ? "Модель думает и ищет паттерны…" : lang === "ua" ? "Модель думає і шукає патерни…" : lang === "de" ? "Modell analysiert im Hintergrund…" : "Model is thinking and finding patterns…",
+        description: lang === "ru" ? "Рекомендуем перезагрузить страницу через минуту, чтобы увидеть результат." : lang === "ua" ? "Радимо перезавантажити сторінку за хвилину, щоб побачити результат." : lang === "de" ? "Laden Sie die Seite in einer Minute neu, um die Ergebnisse zu sehen." : "We recommend reloading the page in a minute to see the results.",
+        duration: 8000,
+      });
     }
   };
 
@@ -509,9 +515,15 @@ function RoleModelsSection({ bookId, book }: { bookId: number; book: Book }) {
       setAnalyzing(null);
       toast({ title: t.analyzeDone });
     },
-    onError: (e: any) => {
+    onError: (_e: any) => {
       setAnalyzing(null);
-      if (!handleAiError(e)) toast({ title: t.analyzeError, variant: "destructive" });
+      setSelectedModel(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "role-models"] });
+      toast({
+        title: lang === "ru" ? "Модель думает и ищет паттерны…" : lang === "ua" ? "Модель думає і шукає патерни…" : lang === "de" ? "Modell analysiert im Hintergrund…" : "Model is thinking and finding patterns…",
+        description: lang === "ru" ? "Рекомендуем перезагрузить страницу через минуту, чтобы увидеть результат." : lang === "ua" ? "Радимо перезавантажити сторінку за хвилину, щоб побачити результат." : lang === "de" ? "Laden Sie die Seite in einer Minute neu, um die Ergebnisse zu sehen." : "We recommend reloading the page in a minute to see the results.",
+        duration: 8000,
+      });
     },
   });
 
@@ -1082,20 +1094,59 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
           />
 
           {/* Stats */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground/60 flex-shrink-0">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground/60 flex-shrink-0">
             <span>{t.words(wordCount)}</span>
-            <span>·</span>
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{readingTime}</span>
             {isDirty && <span className="text-amber-500">●</span>}
             {updateMutation.isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
           </div>
+
+          <div className="w-px h-4 bg-border/60" />
+
+          {/* Font scale */}
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => setFontScale(v => Math.max(70, v - 5))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-bold">A<sup className="text-[7px]">–</sup></button>
+            <button onClick={() => setFontScale(100)} className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors w-7 text-center tabular-nums">{fontScale}%</button>
+            <button onClick={() => setFontScale(v => Math.min(160, v + 5))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-bold">A<sup className="text-[7px]">+</sup></button>
+          </div>
+
+          {/* Max width */}
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => setMaxWidth(v => Math.max(480, v - 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Minus className="h-3 w-3" /></button>
+            <button onClick={() => setMaxWidth(1010)} className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"><ChevronsLeftRight className="h-3 w-3" /><span className="tabular-nums w-7 text-center">{maxWidth}</span></button>
+            <button onClick={() => setMaxWidth(v => Math.min(1010, v + 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Plus className="h-3 w-3" /></button>
+          </div>
+
+          {/* Typewriter */}
+          <button onClick={() => setIsTypewriterMode(v => !v)} className={`h-6 w-6 flex items-center justify-center rounded transition-colors ${isTypewriterMode ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`} title={t.typewriterMode ?? "Typewriter"}>
+            <Keyboard className="h-3 w-3" />
+          </button>
+
+          {/* Sprint */}
+          <div className="relative">
+            <button onClick={() => { if (sprintActive) return; setSprintExpanded(v => !v); }} className={`h-6 flex items-center gap-1 px-1.5 rounded transition-colors text-xs ${sprintActive ? "text-orange-500 bg-orange-50 dark:bg-orange-950/30" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`} title={t.sprintLabel ?? "Sprint"}>
+              {sprintActive ? (<><Clock className="h-3 w-3 animate-pulse" /><span className="font-mono text-[10px]">{String(Math.floor(sprintSecondsLeft / 60)).padStart(2,"0")}:{String(sprintSecondsLeft % 60).padStart(2,"0")}</span></>) : (<Timer className="h-3 w-3" />)}
+            </button>
+            {sprintActive && (<button onClick={stopSprint} className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-destructive/80 flex items-center justify-center text-white hover:bg-destructive transition-colors"><X className="h-2 w-2" /></button>)}
+            {sprintExpanded && !sprintActive && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-border bg-background shadow-xl p-3 space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.sprintLabel ?? "Sprint"}</p>
+                <div className="flex gap-2">
+                  <div className="flex-1"><p className="text-[10px] text-muted-foreground mb-1">{t.sprintGoalPlaceholder ?? "Words"}</p><input type="number" min={50} max={10000} step={50} value={sprintGoal} onChange={e => setSprintGoal(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none" /></div>
+                  <div className="flex-1"><p className="text-[10px] text-muted-foreground mb-1">Min</p><select value={sprintMin} onChange={e => setSprintMin(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none">{[5,10,15,20,25,30,45,60].map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+                </div>
+                <button onClick={startSprint} className="w-full py-1.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: "#F96D1C" }}><Zap className="h-3 w-3" /> {t.sprintStart ?? "Start"}</button>
+              </div>
+            )}
+          </div>
+
+          <div className="w-px h-4 bg-border/60" />
 
           {/* Chapter link */}
           <Select
             value={linkedChapterId ? String(linkedChapterId) : "none"}
             onValueChange={v => { setLinkedChapterId(v === "none" ? null : Number(v)); setIsDirty(true); }}
           >
-            <SelectTrigger className="w-40 h-7 text-xs rounded-lg border-border/50 bg-secondary/50 [&>span]:truncate">
+            <SelectTrigger className="w-36 h-7 text-xs rounded-lg border-border/50 bg-secondary/50 [&>span]:truncate">
               <Link2 className="h-3 w-3 mr-1 flex-shrink-0 text-muted-foreground/60" />
               <SelectValue placeholder={t.linkChapter} />
             </SelectTrigger>
@@ -1109,12 +1160,6 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
 
           {/* Actions */}
           <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setShowAiPanel(v => !v)}
-              title="AI"
-              className={`h-7 w-7 flex items-center justify-center rounded-lg transition-colors border ${showAiPanel ? "bg-violet-100 dark:bg-violet-900/30 border-violet-300/50 text-violet-600" : "border-border/50 text-muted-foreground hover:bg-secondary"}`}>
-              <Wand2 className="h-3.5 w-3.5" />
-            </button>
             <button
               onClick={() => setShowMoveModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
@@ -1130,72 +1175,6 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
               {t.saveBtn}
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Toolbar row — font scale + max width + typewriter + sprint */}
-      <div className="flex-shrink-0 border-b border-border/30 px-4 py-2 flex items-center gap-3 bg-background/60">
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => setFontScale(v => Math.max(70, v - 5))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-bold">A<sup className="text-[7px]">–</sup></button>
-          <button onClick={() => setFontScale(100)} className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors w-8 text-center tabular-nums">{fontScale}%</button>
-          <button onClick={() => setFontScale(v => Math.min(160, v + 5))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors text-xs font-bold">A<sup className="text-[7px]">+</sup></button>
-        </div>
-        <div className="w-px h-4 bg-border/60" />
-        <div className="flex items-center gap-0.5">
-          <button onClick={() => setMaxWidth(v => Math.max(480, v - 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Minus className="h-3 w-3" /></button>
-          <button onClick={() => setMaxWidth(768)} className="flex items-center gap-0.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"><ChevronsLeftRight className="h-3 w-3" /><span className="tabular-nums w-8 text-center">{maxWidth}</span></button>
-          <button onClick={() => setMaxWidth(v => Math.min(1010, v + 60))} className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent/60 text-muted-foreground hover:text-foreground transition-colors"><Plus className="h-3 w-3" /></button>
-        </div>
-        <div className="w-px h-4 bg-border/60" />
-        {/* Typewriter mode */}
-        <button
-          onClick={() => setIsTypewriterMode(v => !v)}
-          className={`h-7 w-7 flex items-center justify-center rounded-lg transition-colors ${isTypewriterMode ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}
-          title={t.typewriterMode ?? "Typewriter mode"}
-        >
-          <Keyboard className="h-3.5 w-3.5" />
-        </button>
-        {/* Sprint */}
-        <div className="relative">
-          <button
-            onClick={() => { if (sprintActive) return; setSprintExpanded(v => !v); }}
-            className={`h-7 flex items-center gap-1.5 px-2 rounded-lg transition-colors text-xs ${sprintActive ? "text-orange-500 bg-orange-50 dark:bg-orange-950/30" : "text-muted-foreground hover:text-foreground hover:bg-accent/60"}`}
-            title={t.sprintLabel ?? "Sprint"}
-          >
-            {sprintActive ? (
-              <>
-                <Clock className="h-3.5 w-3.5 animate-pulse" />
-                <span className="font-mono text-[11px]">{String(Math.floor(sprintSecondsLeft / 60)).padStart(2,"0")}:{String(sprintSecondsLeft % 60).padStart(2,"0")}</span>
-              </>
-            ) : (
-              <Timer className="h-3.5 w-3.5" />
-            )}
-          </button>
-          {sprintActive && (
-            <button onClick={stopSprint} className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-destructive/80 flex items-center justify-center text-white hover:bg-destructive transition-colors">
-              <X className="h-2 w-2" />
-            </button>
-          )}
-          {sprintExpanded && !sprintActive && (
-            <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-border bg-background shadow-xl p-3 space-y-2">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{t.sprintLabel ?? "Sprint"}</p>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <p className="text-[10px] text-muted-foreground mb-1">{t.sprintGoalPlaceholder ?? "Word goal"}</p>
-                  <input type="number" min={50} max={10000} step={50} value={sprintGoal} onChange={e => setSprintGoal(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[10px] text-muted-foreground mb-1">Min</p>
-                  <select value={sprintMin} onChange={e => setSprintMin(e.target.value)} className="w-full rounded-lg border border-border bg-secondary/50 px-2 py-1 text-xs outline-none">
-                    {[5,10,15,20,25,30,45,60].map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button onClick={startSprint} className="w-full py-1.5 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: "#F96D1C" }}>
-                <Zap className="h-3 w-3" /> {t.sprintStart ?? "Start"}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
