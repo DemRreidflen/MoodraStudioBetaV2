@@ -13,9 +13,10 @@ import { NotesPanel } from "@/components/notes-panel";
 import { ResearchPanel } from "@/components/research-panel";
 import { BookSettings } from "@/components/book-settings";
 import { IdeaBoard } from "@/components/idea-board";
+import { LayoutMode } from "@/components/layout-mode";
 import {
   ArrowLeft, Sparkles, Users, BookOpen, FileText,
-  FlaskConical, Settings, Feather, Brain, Download
+  FlaskConical, Settings, Feather, Brain, Download, Columns2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -23,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-export type EditorTab = "editor" | "characters" | "notes" | "research" | "board" | "settings";
+export type EditorTab = "editor" | "characters" | "notes" | "research" | "board" | "layout" | "settings";
 
 function CoverDot({ book }: { book: Book }) {
   if (book.coverImage) {
@@ -104,6 +105,7 @@ export default function BookEditor() {
     { id: "notes" as EditorTab, icon: FileText, label: "Заметки" },
     { id: "research" as EditorTab, icon: FlaskConical, label: "Исследования" },
     { id: "board" as EditorTab, icon: Brain, label: "Доска идей" },
+    { id: "layout" as EditorTab, icon: Columns2, label: "Верстка" },
     { id: "settings" as EditorTab, icon: Settings, label: "Настройки" },
   ];
 
@@ -248,6 +250,7 @@ export default function BookEditor() {
           {activeTab === "notes" && <NotesPanel bookId={bookId} />}
           {activeTab === "research" && <ResearchPanel bookId={bookId} book={book} />}
           {activeTab === "board" && <IdeaBoard bookId={bookId} book={book} />}
+          {activeTab === "layout" && <LayoutMode bookId={bookId} book={book} />}
           {activeTab === "settings" && <BookSettings book={book} />}
         </main>
 
