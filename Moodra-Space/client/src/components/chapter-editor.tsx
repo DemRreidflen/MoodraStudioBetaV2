@@ -1,0 +1,1321 @@
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Chapter, Book } from "@shared/schema";
+import { useLang } from "@/contexts/language-context";
+import { useFreeMode } from "@/hooks/use-free-mode";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useAiError } from "@/contexts/ai-error-context";
+import { 
+  Save, 
+  BookOpen, 
+  Type, 
+  AlignLeft, 
+  Maximize2, 
+  Minimize2, 
+  X,
+  Globe,
+  Loader2,
+  RefreshCw,
+  PlusSquare,
+  ChevronDown,
+  Check,
+  DollarSign,
+  Wand2,
+  ArrowDownIcon,
+  Plus,
+  Sparkles,
+  RotateCcw,
+} from "lucide-react";
+import { BlockEditor, Block, blocksToPlainText } from "./block-editor";
+import { cn } from "@/lib/utils";
+import { useBookSettings } from "@/hooks/use-book-settings";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { SelectionToolbar } from "./selection-toolbar";
+
+interface Props {
+  chapter: Chapter | null;
+  bookTitle: string;
+  bookMode: string;
+  bookId?: number;
+  onContextChange: (context: string) => void;
+  onInsertReady: (cb: (text: string) => void) => void;
+  isDeepWritingMode?: boolean;
+  onToggleDeepWritingMode?: () => void;
+  onWrite?: () => void;
+}
+
+const ACTION_BUTTONS_I18N = {
+  en: [
+    { mode: "improve",   label: "Improve",   emoji: "✦" },
+    { mode: "expand",    label: "Expand",    emoji: "↗" },
+    { mode: "shorten",   label: "Shorten",   emoji: "↙" },
+    { mode: "rephrase",  label: "Rephrase",  emoji: "↺" },
+    { mode: "example",   label: "+ Example", emoji: "◎" },
+    { mode: "strengthen",label: "Strengthen",emoji: "⚡" },
+  ],
+  ru: [
+    { mode: "improve",   label: "Улучшить",  emoji: "✦" },
+    { mode: "expand",    label: "Расширить", emoji: "↗" },
+    { mode: "shorten",   label: "Сократить", emoji: "↙" },
+    { mode: "rephrase",  label: "Перефразировать", emoji: "↺" },
+    { mode: "example",   label: "+ Пример",  emoji: "◎" },
+    { mode: "strengthen",label: "Усилить",   emoji: "⚡" },
+  ],
+  ua: [
+    { mode: "improve",   label: "Покращити", emoji: "✦" },
+    { mode: "expand",    label: "Розширити", emoji: "↗" },
+    { mode: "shorten",   label: "Скоротити", emoji: "↙" },
+    { mode: "rephrase",  label: "Перефразувати", emoji: "↺" },
+    { mode: "example",   label: "+ Приклад", emoji: "◎" },
+    { mode: "strengthen",label: "Підсилити", emoji: "⚡" },
+  ],
+  de: [
+    { mode: "improve",   label: "Verbessern",    emoji: "✦" },
+    { mode: "expand",    label: "Erweitern",     emoji: "↗" },
+    { mode: "shorten",   label: "Kürzen",        emoji: "↙" },
+    { mode: "rephrase",  label: "Umformulieren", emoji: "↺" },
+    { mode: "example",   label: "+ Beispiel",    emoji: "◎" },
+    { mode: "strengthen",label: "Verstärken",    emoji: "⚡" },
+  ],
+};
+
+const ADAPT_LANGUAGES = [
+  { code: "English",     label: "English" },
+  { code: "Spanish",    label: "Español" },
+  { code: "German",     label: "Deutsch" },
+  { code: "French",     label: "Français" },
+  { code: "Italian",    label: "Italiano" },
+  { code: "Portuguese", label: "Português" },
+  { code: "Chinese",    label: "中文" },
+  { code: "Japanese",   label: "日本語" },
+  { code: "Korean",     label: "한국어" },
+  { code: "Ukrainian",  label: "Українська" },
+  { code: "Russian",    label: "Русский" },
+];
+
+const ADAPT_MODEL_PRICES: Record<string, { input: number; output: number; name: string }> = {
+  "gpt-4o-mini":  { input: 0.150,  output: 0.600,  name: "GPT-4o mini" },
+  "gpt-4.1-mini": { input: 0.40,   output: 1.60,   name: "GPT-4.1 mini" },
+  "gpt-3.5-turbo":{ input: 0.50,   output: 1.50,   name: "GPT-3.5 Turbo" },
+  "gpt-4o":       { input: 2.50,   output: 10.00,  name: "GPT-4o" },
+  "gpt-4.1":      { input: 2.00,   output: 8.00,   name: "GPT-4.1" },
+  "gpt-4-turbo":  { input: 10.00,  output: 30.00,  name: "GPT-4 Turbo" },
+  "o4-mini":      { input: 1.10,   output: 4.40,   name: "o4-mini" },
+};
+
+const ADAPT_MODEL_ID = "o4-mini";
+
+function estimateAdaptCost(text: string, _modelId?: string) {
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const estInputTokens = Math.ceil(wordCount * 1.3);
+  const estOutputTokens = estInputTokens;
+  const prices = ADAPT_MODEL_PRICES[ADAPT_MODEL_ID];
+  const costInput = (estInputTokens / 1_000_000) * prices.input;
+  const costOutput = (estOutputTokens / 1_000_000) * prices.output;
+  const totalCost = costInput + costOutput;
+  return { wordCount, estInputTokens, estOutputTokens, modelName: prices.name, totalCost, priceInput: prices.input, priceOutput: prices.output };
+}
+
+const EDITOR_I18N = {
+  en: {
+    selectChapter: "Select a chapter to edit",
+    selectChapterHint: "or create a new chapter in the sidebar",
+    improveChapter: "Improve chapter",
+    customStyle: "Custom style…",
+    applying: "Applying…",
+    apply: "Apply",
+    beforeAfter: "Before & After",
+    original: "Original",
+    improved: "Improved",
+    reject: "Discard",
+    accept: "Replace selection",
+    insertParagraph: "Insert below",
+    regenerate: "Retry",
+    customInstruction: "Additional instruction (optional)…",
+    words: "words",
+    modified: "Modified",
+    saving: "Saving…",
+    save: "Save",
+    chapterPlaceholder: "Chapter title…",
+    customStylePlaceholder: "Your style…",
+    thinkingFree: "Model is thinking…",
+    adaptLang: "Adapt to language",
+    adaptModalTitle: "Language Adaptation",
+    adaptDesc: "The AI will adapt this chapter into the selected language, preserving meaning and narrative style. A new book version will be created.",
+    adaptSelectLang: "Select language",
+    adaptRun: "Start adaptation",
+    adaptRunning: "Adapting…",
+    adaptNewBook: "Create new book in this language",
+    adaptSuccess: "Chapter adapted and saved to new book!",
+    adaptNote: "A new book \"{{title}}\" has been created with the adapted chapter.",
+    adaptOrExisting: "Or add to existing book",
+    adaptChooseBook: "Choose book",
+    adaptExistingTitle: "Add to existing book",
+    adaptExistingDesc: "Select a book to insert the adapted chapter into.",
+    adaptWorkflowNew: "Create new book",
+    adaptWorkflowExisting: "Add to existing book",
+    adaptBackToLang: "← Change language",
+    adaptNoBooks: "No other books found.",
+    adaptIndicatorTitle: "Language adaptations available",
+    adaptGoTo: "Open",
+    readingMode: "Reading mode",
+    costPreviewTitle: "Cost Estimate",
+    costWords: "Words in chapter",
+    costInputTokens: "Est. input tokens",
+    costOutputTokens: "Est. output tokens",
+    costModel: "Adaptation model",
+    costModelNote: "Optimized for translation (200K context, 100K output)",
+    costInputRate: "Input rate",
+    costOutputRate: "Output rate",
+    costTotal: "Estimated cost",
+    costNote: "Actual cost may vary slightly depending on text complexity.",
+    costConfirm: "Confirm & Adapt",
+    costBack: "← Back",
+  },
+  ru: {
+    selectChapter: "Выберите главу для редактирования",
+    selectChapterHint: "или создайте новую главу в боковой панели",
+    improveChapter: "Улучшить главу",
+    customStyle: "Свой стиль…",
+    applying: "Улучшаю…",
+    apply: "Применить",
+    beforeAfter: "До и После",
+    original: "Оригинал",
+    improved: "Улучшенный",
+    reject: "Отклонить",
+    accept: "Заменить фрагмент",
+    insertParagraph: "Вставить ниже",
+    regenerate: "Повторить",
+    customInstruction: "Дополнительная инструкция (необязательно)…",
+    words: "слов",
+    modified: "Изменён",
+    saving: "Сохраняю…",
+    save: "Сохранить",
+    chapterPlaceholder: "Название главы…",
+    customStylePlaceholder: "Свой стиль…",
+    thinkingFree: "Модель думает…",
+    adaptLang: "Адаптировать на язык",
+    adaptModalTitle: "Языковая адаптация",
+    adaptDesc: "ИИ адаптирует эту главу на выбранный язык, сохраняя смысл и нарративный стиль. Будет создана новая версия книги.",
+    adaptSelectLang: "Выберите язык",
+    adaptRun: "Начать адаптацию",
+    adaptRunning: "Адаптирую…",
+    adaptNewBook: "Создать новую книгу на этом языке",
+    adaptSuccess: "Глава адаптирована и сохранена в новой книге!",
+    adaptNote: "Создана новая книга «{{title}}» с адаптированной главой.",
+    adaptOrExisting: "Или добавить в существующую книгу",
+    adaptChooseBook: "Выбрать книгу",
+    adaptExistingTitle: "Добавить в существующую книгу",
+    adaptExistingDesc: "Выберите книгу для вставки адаптированной главы.",
+    adaptWorkflowNew: "Создать новую книгу",
+    adaptWorkflowExisting: "Добавить в существующую книгу",
+    adaptBackToLang: "← Изменить язык",
+    adaptNoBooks: "Другие книги не найдены.",
+    adaptIndicatorTitle: "Доступные языковые адаптации",
+    adaptGoTo: "Открыть",
+    readingMode: "Режим чтения",
+    costPreviewTitle: "Оценка стоимости",
+    costWords: "Слов в главе",
+    costInputTokens: "≈ входных токенов",
+    costOutputTokens: "≈ выходных токенов",
+    costModel: "Модель адаптации",
+    costModelNote: "Оптимизирована для перевода (200K контекст, 100K выход)",
+    costInputRate: "Ставка (вход)",
+    costOutputRate: "Ставка (выход)",
+    costTotal: "Ориентировочная стоимость",
+    costNote: "Реальная стоимость может незначительно отличаться в зависимости от сложности текста.",
+    costConfirm: "Подтвердить и адаптировать",
+    costBack: "← Назад",
+  },
+  ua: {
+    selectChapter: "Оберіть розділ для редагування",
+    selectChapterHint: "або створіть новий розділ у бічній панелі",
+    improveChapter: "Покращити розділ",
+    customStyle: "Власний стиль…",
+    applying: "Покращую…",
+    apply: "Застосувати",
+    beforeAfter: "До і Після",
+    original: "Оригінал",
+    improved: "Покращений",
+    reject: "Відхилити",
+    accept: "Замінити фрагмент",
+    insertParagraph: "Вставити нижче",
+    regenerate: "Повторити",
+    customInstruction: "Додаткова інструкція (необов'язково)…",
+    words: "слів",
+    modified: "Змінено",
+    saving: "Зберігаю…",
+    save: "Зберегти",
+    chapterPlaceholder: "Назва розділу…",
+    customStylePlaceholder: "Власний стиль…",
+    thinkingFree: "Модель думає…",
+    adaptLang: "Адаптувати на мову",
+    adaptModalTitle: "Мовна адаптація",
+    adaptDesc: "ІІ адаптує цей розділ на обрану мову, зберігаючи сенс і наративний стиль. Буде створена нова версія книги.",
+    adaptSelectLang: "Оберіть мову",
+    adaptRun: "Почати адаптацію",
+    adaptRunning: "Адаптую…",
+    adaptNewBook: "Створити нову книгу цією мовою",
+    adaptSuccess: "Розділ адаптовано і збережено в нову книгу!",
+    adaptNote: "Створено нову книгу «{{title}}» з адаптованим розділом.",
+    adaptOrExisting: "Або додати до існуючої книги",
+    adaptChooseBook: "Обрати книгу",
+    adaptExistingTitle: "Додати до існуючої книги",
+    adaptExistingDesc: "Оберіть книгу для вставки адаптованого розділу.",
+    adaptWorkflowNew: "Створити нову книгу",
+    adaptWorkflowExisting: "Додати до існуючої книги",
+    adaptBackToLang: "← Змінити мову",
+    adaptNoBooks: "Інші книги не знайдено.",
+    adaptIndicatorTitle: "Доступні мовні адаптації",
+    adaptGoTo: "Відкрити",
+    readingMode: "Режим читання",
+    costPreviewTitle: "Оцінка вартості",
+    costWords: "Слів у розділі",
+    costInputTokens: "≈ вхідних токенів",
+    costOutputTokens: "≈ вихідних токенів",
+    costModel: "Модель адаптації",
+    costModelNote: "Оптимізована для перекладу (200K контекст, 100K вихід)",
+    costInputRate: "Тариф (вхід)",
+    costOutputRate: "Тариф (вихід)",
+    costTotal: "Орієнтовна вартість",
+    costNote: "Фактична вартість може незначно відрізнятися залежно від складності тексту.",
+    costConfirm: "Підтвердити й адаптувати",
+    costBack: "← Назад",
+  },
+  de: {
+    selectChapter: "Wähle ein Kapitel zur Bearbeitung",
+    selectChapterHint: "oder erstelle ein neues Kapitel in der Seitenleiste",
+    improveChapter: "Kapitel verbessern",
+    customStyle: "Eigener Stil…",
+    applying: "Verbessere…",
+    apply: "Anwenden",
+    beforeAfter: "Vorher & Nachher",
+    original: "Original",
+    improved: "Verbessert",
+    reject: "Ablehnen",
+    accept: "Auswahl ersetzen",
+    insertParagraph: "Darunter einfügen",
+    regenerate: "Wiederholen",
+    customInstruction: "Zusätzliche Anweisung (optional)…",
+    words: "Wörter",
+    modified: "Geändert",
+    saving: "Speichere…",
+    save: "Speichern",
+    chapterPlaceholder: "Kapiteltitel…",
+    customStylePlaceholder: "Eigener Stil…",
+    thinkingFree: "Modell denkt nach…",
+    adaptLang: "In Sprache adaptieren",
+    adaptModalTitle: "Sprachadaption",
+    adaptDesc: "Die KI adaptiert dieses Kapitel in die gewählte Sprache und bewahrt Bedeutung und Erzählstil. Eine neue Buchversion wird erstellt.",
+    adaptSelectLang: "Sprache wählen",
+    adaptRun: "Adaption starten",
+    adaptRunning: "Adaptiere…",
+    adaptNewBook: "Neues Buch in dieser Sprache erstellen",
+    adaptSuccess: "Kapitel adaptiert und im neuen Buch gespeichert!",
+    adaptNote: "Ein neues Buch «{{title}}» mit dem adaptierten Kapitel wurde erstellt.",
+    adaptOrExisting: "Oder zu vorhandenem Buch hinzufügen",
+    adaptChooseBook: "Buch auswählen",
+    adaptExistingTitle: "Zu vorhandenem Buch hinzufügen",
+    adaptExistingDesc: "Wähle ein Buch, in das das adaptierte Kapitel eingefügt werden soll.",
+    adaptWorkflowNew: "Neues Buch erstellen",
+    adaptWorkflowExisting: "Zu vorhandenem Buch hinzufügen",
+    adaptBackToLang: "← Sprache ändern",
+    adaptNoBooks: "Keine anderen Bücher gefunden.",
+    adaptIndicatorTitle: "Verfügbare Sprachadaptionen",
+    adaptGoTo: "Öffnen",
+    readingMode: "Lesemodus",
+    costPreviewTitle: "Kostenschätzung",
+    costWords: "Wörter im Kapitel",
+    costInputTokens: "≈ Eingabe-Tokens",
+    costOutputTokens: "≈ Ausgabe-Tokens",
+    costModel: "Adaptionsmodell",
+    costModelNote: "Optimiert für Übersetzung (200K Kontext, 100K Ausgabe)",
+    costInputRate: "Tarif (Eingabe)",
+    costOutputRate: "Tarif (Ausgabe)",
+    costTotal: "Geschätzte Kosten",
+    costNote: "Die tatsächlichen Kosten können je nach Textkomplexität leicht abweichen.",
+    costConfirm: "Bestätigen & Adaptieren",
+    costBack: "← Zurück",
+  },
+};
+
+const MODE_LABELS: Record<string, Record<string, string>> = {
+  en: { improve: "Improve", rewrite: "Rewrite", simplify: "Simplify", expand: "Expand", translate: "Translate", "adapt-tone": "Adapt tone", "fix-grammar": "Fix grammar" },
+  ru: { improve: "Улучшить", rewrite: "Переписать", simplify: "Упростить", expand: "Расширить", translate: "Перевести", "adapt-tone": "Изменить тон", "fix-grammar": "Исправить грамматику" },
+  ua: { improve: "Покращити", rewrite: "Переписати", simplify: "Спростити", expand: "Розширити", translate: "Перекласти", "adapt-tone": "Змінити тон", "fix-grammar": "Виправити граматику" },
+  de: { improve: "Verbessern", rewrite: "Umschreiben", simplify: "Vereinfachen", expand: "Erweitern", translate: "Übersetzen", "adapt-tone": "Ton anpassen", "fix-grammar": "Grammatik korrigieren" },
+};
+
+const FREE_THINKING_MSGS_EDITOR: Record<string, string[]> = {
+  en: ["Reading your text…", "Analysing style…", "Thinking…", "Formulating improvements…"],
+  ru: ["Читает текст…", "Анализирует стиль…", "Думает…", "Формирует улучшения…"],
+  ua: ["Читає текст…", "Аналізує стиль…", "Думає…", "Формує покращення…"],
+  de: ["Liest den Text…", "Analysiert Stil…", "Denkt nach…", "Formuliert Verbesserungen…"],
+};
+
+const ADAPT_LOADING_MSGS: Record<string, string[]> = {
+  en: ["Analyzing chapter structure…", "Adapting text to target language…", "Preserving narrative style…", "Translating paragraphs…", "Almost there…"],
+  ru: ["Анализирую структуру главы…", "Адаптирую текст…", "Сохраняю нарративный стиль…", "Перевожу абзацы…", "Почти готово…"],
+  ua: ["Аналізую структуру розділу…", "Адаптую текст…", "Зберігаю наративний стиль…", "Перекладаю абзаци…", "Майже готово…"],
+  de: ["Kapitelstruktur wird analysiert…", "Text wird adaptiert…", "Erzählstil wird beibehalten…", "Absätze werden übersetzt…", "Fast fertig…"],
+};
+
+function estimateChunkCount(text: string): number {
+  const CHUNK_WORD_LIMIT = 6000;
+  const paragraphs = text.split(/\n\n+/);
+  let chunks = 0;
+  let currentWordCount = 0;
+  for (const para of paragraphs) {
+    const words = para.split(/\s+/).filter(Boolean).length;
+    if (words > CHUNK_WORD_LIMIT) {
+      if (currentWordCount > 0) { chunks++; currentWordCount = 0; }
+      chunks += Math.ceil(words / CHUNK_WORD_LIMIT);
+    } else if (currentWordCount + words > CHUNK_WORD_LIMIT && currentWordCount > 0) {
+      chunks++;
+      currentWordCount = words;
+    } else {
+      currentWordCount += words;
+    }
+  }
+  if (currentWordCount > 0) chunks++;
+  return Math.max(1, chunks);
+}
+
+export function ChapterEditor({ 
+  chapter, 
+  bookTitle, 
+  bookMode,
+  bookId,
+  onContextChange, 
+  onInsertReady,
+  isDeepWritingMode,
+  onToggleDeepWritingMode,
+  onWrite,
+}: Props) {
+  const { toast } = useToast();
+  const { handleAiError } = useAiError();
+  const { lang } = useLang();
+  const { isFreeMode } = useFreeMode();
+  const { data: currentUser } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+  const currentModelId = currentUser?.openaiModel || "gpt-4o-mini";
+  const { settings: bookSettings } = useBookSettings(bookId || 0);
+  const s = EDITOR_I18N[lang as keyof typeof EDITOR_I18N] ?? EDITOR_I18N.en;
+  const thinkingMsgs = FREE_THINKING_MSGS_EDITOR[lang as keyof typeof FREE_THINKING_MSGS_EDITOR] ?? FREE_THINKING_MSGS_EDITOR.en;
+
+  const [title, setTitle] = useState("");
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [isDirty, setIsDirty] = useState(false);
+  const [wordCount, setWordCount] = useState(0);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  
+  const [activeActionMode, setActiveActionMode] = useState<string | null>(null);
+  const [improvementModal, setImprovementModal] = useState<{
+    original: string;
+    improved: string;
+  } | null>(null);
+  const [lastMode, setLastMode] = useState<string>("improve");
+  const [customInstruction, setCustomInstruction] = useState("");
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  const [showAdaptModal, setShowAdaptModal] = useState(false);
+  const [adaptLang, setAdaptLang] = useState("");
+  const [adaptLoading, setAdaptLoading] = useState(false);
+  const [adaptMsgIdx, setAdaptMsgIdx] = useState(0);
+  const adaptMsgRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [adaptDone, setAdaptDone] = useState<{ message: string; bookId?: number; bookTitle?: string } | null>(null);
+  const [adaptShowLangPicker, setAdaptShowLangPicker] = useState(false);
+  const [adaptStep, setAdaptStep] = useState<"select-lang" | "select-workflow" | "select-book" | "cost-preview">("select-lang");
+  const [pendingWorkflow, setPendingWorkflow] = useState<"new" | "existing">("new");
+  const [adaptWorkflow, setAdaptWorkflow] = useState<"new" | "existing">("new");
+  const [allBooks, setAllBooks] = useState<Book[]>([]);
+  const [selectedExistingBookId, setSelectedExistingBookId] = useState<number | null>(null);
+  const [adaptations, setAdaptations] = useState<Array<{ lang: string; bookId: number; bookTitle: string }>>([]);
+  const [, navigate] = useLocation();
+
+  const [isReadingMode, setIsReadingMode] = useState(false);
+  const [freeThinkingIdx, setFreeThinkingIdx] = useState(0);
+  const freeThinkingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const inlineTitleRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chapter) {
+      setTitle(chapter.title);
+      setIsDirty(false);
+      // Pre-populate blocks from chapter.content so AI actions work before user makes changes
+      try {
+        const c = chapter.content || "";
+        if (c.trim().startsWith("[")) {
+          const parsed = JSON.parse(c);
+          if (Array.isArray(parsed)) { setBlocks(parsed); } else { setBlocks([]); }
+        } else if (c) {
+          setBlocks([{ id: "init-0", type: "paragraph" as const, content: c }]);
+        } else {
+          setBlocks([]);
+        }
+      } catch { setBlocks([]); }
+      clearTimeout(saveTimerRef.current);
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      const stored = localStorage.getItem(`moodra_adaptations_${chapter.id}`);
+      if (stored) {
+        try { setAdaptations(JSON.parse(stored)); } catch { setAdaptations([]); }
+      } else {
+        setAdaptations([]);
+      }
+    }
+  }, [chapter?.id]);
+
+  useEffect(() => {
+    if (adaptLoading) {
+      setAdaptMsgIdx(0);
+      adaptMsgRef.current = setInterval(() => {
+        setAdaptMsgIdx(prev => prev + 1);
+      }, 3500);
+    } else {
+      if (adaptMsgRef.current) clearInterval(adaptMsgRef.current);
+      adaptMsgRef.current = null;
+    }
+    return () => { if (adaptMsgRef.current) clearInterval(adaptMsgRef.current); };
+  }, [adaptLoading]);
+
+  useEffect(() => {
+    if (showAdaptModal) {
+      fetch("/api/books").then(r => r.json()).then(books => {
+        setAllBooks(Array.isArray(books) ? books : []);
+      }).catch(() => setAllBooks([]));
+    }
+  }, [showAdaptModal]);
+
+  // Sync the inline title element when chapter changes (without disrupting typing)
+  useLayoutEffect(() => {
+    if (inlineTitleRef.current && chapter) {
+      inlineTitleRef.current.textContent = chapter.title;
+    }
+  }, [chapter?.id]);
+
+  // Keep inline title in sync when title is changed from the toolbar input
+  // (only update if the inline title div is NOT currently focused)
+  useEffect(() => {
+    const el = inlineTitleRef.current;
+    if (el && document.activeElement !== el) {
+      el.textContent = title;
+    }
+  }, [title]);
+
+  useEffect(() => {
+    const plainText = blocksToPlainText(blocks);
+    const words = plainText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    setWordCount(words);
+    onContextChange(plainText);
+  }, [blocks, onContextChange]);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("PATCH", `/api/chapters/${chapter!.id}`, data),
+    onSuccess: (updated: Chapter) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", updated.bookId, "chapters"] });
+      setIsDirty(false);
+      onWrite?.();
+    },
+    onError: () => toast({ title: s.saving + " error", variant: "destructive" }),
+  });
+
+  const improveMutation = useMutation({
+    mutationFn: async (actionMode: string) => {
+      const text = blocksToPlainText(blocks);
+      setActiveActionMode(actionMode);
+
+      if (isFreeMode) {
+        setFreeThinkingIdx(0);
+        let idx = 0;
+        freeThinkingRef.current = setInterval(() => {
+          idx = (idx + 1) % thinkingMsgs.length;
+          setFreeThinkingIdx(idx);
+        }, 1600);
+
+        const resp = await fetch("/api/ai/free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: text,
+            context: "",
+            bookTitle,
+            lang,
+            mode: actionMode,
+          }),
+        });
+
+        if (freeThinkingRef.current) { clearInterval(freeThinkingRef.current); freeThinkingRef.current = null; }
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.message || "Free AI error");
+        }
+        const data = await resp.json();
+        return { original: text, improved: data.content || "" };
+      }
+
+      const res = await apiRequest("POST", "/api/ai/improve", {
+        text,
+        mode: actionMode,
+        bookTitle,
+        bookMode,
+        lang,
+      });
+      return res.json();
+    },
+    onSuccess: (data, variables) => {
+      if (freeThinkingRef.current) { clearInterval(freeThinkingRef.current); freeThinkingRef.current = null; }
+      setActiveActionMode(null);
+      setLastMode(variables as string);
+      setCustomInstruction("");
+      setImprovementModal({
+        original: data.original,
+        improved: data.improved
+      });
+    },
+    onError: (e: any) => {
+      if (freeThinkingRef.current) { clearInterval(freeThinkingRef.current); freeThinkingRef.current = null; }
+      setActiveActionMode(null);
+      if (!handleAiError(e)) toast({ title: s.improveChapter + " error", variant: "destructive" });
+    },
+  });
+
+  const save = useCallback(() => {
+    if (!chapter || !isDirty) return;
+    saveMutation.mutate({ 
+      title, 
+      content: JSON.stringify(blocks), 
+      wordCount 
+    });
+  }, [chapter, isDirty, title, blocks, wordCount]);
+
+  useEffect(() => {
+    if (isDirty) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(save, 2000);
+    }
+    return () => clearTimeout(saveTimerRef.current);
+  }, [isDirty, save]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        save();
+      }
+      if (e.key === "Escape") {
+        if (isReadingMode) {
+          setIsReadingMode(false);
+        } else if (isDeepWritingMode && onToggleDeepWritingMode) {
+          onToggleDeepWritingMode();
+        }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [save, isDeepWritingMode, onToggleDeepWritingMode, isReadingMode]);
+
+  const insertText = useCallback((text: string) => {
+    const newBlock: Block = {
+      id: Math.random().toString(36).substring(2, 11),
+      type: "paragraph",
+      content: text
+    };
+    setBlocks(prev => [...prev, newBlock]);
+    setIsDirty(true);
+  }, []);
+
+  useEffect(() => {
+    onInsertReady(insertText);
+  }, [insertText, onInsertReady]);
+
+  const handleApplyImprovement = () => {
+    if (!improvementModal) return;
+    const { original, improved } = improvementModal;
+    let replaced = false;
+    setBlocks(prev => prev.map(block => {
+      if (!replaced && block.content && block.content.includes(original)) {
+        replaced = true;
+        return { ...block, content: block.content.replace(original, improved) };
+      }
+      return block;
+    }));
+    if (!replaced) {
+      setBlocks(prev => [...prev, {
+        id: Math.random().toString(36).substring(2, 11),
+        type: "paragraph" as any,
+        content: improved,
+      }]);
+    }
+    setIsDirty(true);
+    setImprovementModal(null);
+    setCustomInstruction("");
+  };
+
+  const handleInsertAsParagraph = () => {
+    if (!improvementModal) return;
+    const newBlock: Block = {
+      id: Math.random().toString(36).substring(2, 11),
+      type: "paragraph",
+      content: improvementModal.improved,
+    };
+    setBlocks(prev => [...prev, newBlock]);
+    setIsDirty(true);
+    setImprovementModal(null);
+    setCustomInstruction("");
+  };
+
+  const handleRegenerate = async () => {
+    if (!improvementModal || isRegenerating) return;
+    setIsRegenerating(true);
+    try {
+      const text = improvementModal.original;
+      if (isFreeMode) {
+        const resp = await fetch("/api/ai/free", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text, context: customInstruction, bookTitle, lang, mode: lastMode }),
+        });
+        if (!resp.ok) throw new Error("free ai error");
+        const data = await resp.json();
+        setImprovementModal(prev => prev ? { ...prev, improved: data.content || "" } : null);
+      } else {
+        const res = await fetch("/api/ai/improve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, mode: lastMode, bookTitle, bookMode, lang, customInstruction }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "error");
+        setImprovementModal(prev => prev ? { ...prev, improved: data.improved || "" } : null);
+      }
+    } catch {
+      toast({ title: s.improveChapter + " error", variant: "destructive" });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleSelectionResult = useCallback((original: string, improved: string, mode: string) => {
+    setLastMode(mode);
+    setImprovementModal({ original, improved });
+  }, []);
+
+  const handleAdaptLanguage = async (workflowOverride?: "new" | "existing") => {
+    const workflow = workflowOverride ?? adaptWorkflow;
+    if (!adaptLang || adaptLoading || !chapter) return;
+    if (workflow === "existing" && !selectedExistingBookId) return;
+    setAdaptWorkflow(workflow);
+    setAdaptLoading(true);
+    setAdaptDone(null);
+    try {
+      const text = blocksToPlainText(blocks);
+      const adaptResp = await fetch("/api/ai/adapt-language", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetLanguage: adaptLang, bookTitle, bookMode }),
+      });
+      const adaptData = await adaptResp.json();
+      if (!adaptResp.ok) throw new Error(adaptData.error || "Adaptation error");
+      const adapted = adaptData.adapted || "";
+      const adaptedParagraphs = adapted.split(/\n\n+/).filter((p: string) => p.trim());
+      const originalNonDividers = blocks.filter(b => b.type !== "divider");
+      const adaptedBlocks = adaptedParagraphs.map((p: string, i: number) => ({
+        id: Math.random().toString(36).substring(2, 11),
+        type: (i < originalNonDividers.length ? originalNonDividers[i].type : "paragraph") as string,
+        content: p.trim(),
+      }));
+
+      let targetBookId: number;
+      let targetBookTitle: string;
+
+      if (workflow === "new") {
+        const newTitle = `${bookTitle} (${adaptLang} Adaptation)`;
+        const bookResp = await fetch("/api/books", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle, mode: bookMode || "fiction" }),
+        });
+        const newBook = await bookResp.json();
+        if (!bookResp.ok) throw new Error("Failed to create book");
+        targetBookId = newBook.id;
+        targetBookTitle = newTitle;
+      } else {
+        targetBookId = selectedExistingBookId!;
+        targetBookTitle = allBooks.find(b => b.id === selectedExistingBookId)?.title || "Book";
+      }
+
+      await fetch(`/api/books/${targetBookId}/chapters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: chapter.title,
+          content: JSON.stringify(adaptedBlocks),
+          order: workflow === "new" ? 1 : 9999,
+        }),
+      });
+
+      const newAdaptation = { lang: adaptLang, bookId: targetBookId, bookTitle: targetBookTitle };
+      const updatedAdaptations = [...adaptations.filter(a => a.lang !== adaptLang), newAdaptation];
+      setAdaptations(updatedAdaptations);
+      localStorage.setItem(`moodra_adaptations_${chapter.id}`, JSON.stringify(updatedAdaptations));
+
+      setAdaptDone({ message: s.adaptNote.replace("{{title}}", targetBookTitle), bookId: targetBookId, bookTitle: targetBookTitle });
+      toast({ title: s.adaptSuccess });
+    } catch (e: any) {
+      toast({ title: "Adaptation error", description: e?.message, variant: "destructive" });
+    } finally {
+      setAdaptLoading(false);
+    }
+  };
+
+  if (!chapter) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-center p-8">
+        <div>
+          <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+            <BookOpen className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <p className="text-muted-foreground mb-2">{s.selectChapter}</p>
+          <p className="text-xs text-muted-foreground/60">{s.selectChapterHint}</p>
+        </div>
+      </div>
+    );
+  }
+
+
+  return (
+    <div className={cn(
+      "flex flex-col overflow-hidden transition-all duration-500",
+      (isDeepWritingMode || isReadingMode)
+        ? "fixed inset-0 z-[200] bg-[#FAF2EA]"
+        : "flex-1 bg-card"
+    )}>
+      {/* Editor toolbar */}
+      <div className={cn(
+        "px-5 py-3 border-b border-border flex items-center gap-3 flex-shrink-0 transition-opacity duration-500",
+        (isDeepWritingMode || isReadingMode) && "opacity-0 pointer-events-none h-0 p-0 border-0"
+      )}>
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <Type className="h-4 w-4 text-muted-foreground/60 flex-shrink-0" />
+          <Input
+            data-testid="input-chapter-title-editor"
+            value={title}
+            onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
+            className="border-0 bg-transparent p-0 h-8 text-[15px] font-semibold focus-visible:ring-0 min-w-0 tracking-tight"
+            placeholder={s.chapterPlaceholder}
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground/70 border-r border-border pr-3 mr-1">
+            <AlignLeft className="h-3.5 w-3.5" />
+            <span data-testid="word-count">{wordCount} {s.words}</span>
+          </div>
+
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsReadingMode(true)}
+            data-testid="button-reading-mode"
+            title={s.readingMode || "Reading mode"}
+          >
+            <BookOpen className="h-4 w-4" />
+          </Button>
+
+          {isDirty && (
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+              {s.modified}
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant={isDirty ? "default" : "outline"}
+            className="h-8 gap-1.5 text-xs px-3"
+            onClick={save}
+            disabled={!isDirty || saveMutation.isPending}
+            data-testid="button-save-chapter"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {saveMutation.isPending ? s.saving : s.save}
+          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => { setShowAdaptModal(true); setAdaptDone(null); setAdaptStep("select-lang"); setAdaptLang(""); setSelectedExistingBookId(null); }}
+              title={s.adaptLang}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{s.adaptLang}</span>
+            </Button>
+            {adaptations.length > 0 && (
+              <div className="flex items-center gap-0.5">
+                {adaptations.map(a => (
+                  <button
+                    key={a.lang}
+                    onClick={() => navigate(`/book/${a.bookId}`)}
+                    title={`${s.adaptGoTo}: ${a.bookTitle}`}
+                    className="flex items-center gap-0.5 px-1.5 h-5 rounded-md text-[9px] font-semibold transition-colors hover:opacity-80"
+                    style={{ background: "rgba(99,102,241,0.15)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.25)" }}
+                  >
+                    {a.lang.slice(0, 2).toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+            onClick={onToggleDeepWritingMode}
+            data-testid="button-deep-writing-mode"
+            title="Focus mode"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Selection Toolbar */}
+      {!isReadingMode && (
+        <SelectionToolbar
+          containerRef={editorAreaRef as React.RefObject<HTMLElement>}
+          bookTitle={bookTitle}
+          bookMode={bookMode}
+          onResult={handleSelectionResult}
+        />
+      )}
+
+      {/* Text editor */}
+      <div
+        ref={scrollContainerRef}
+        className={cn(
+          "flex-1 overflow-y-auto transition-all duration-500 relative",
+          (isDeepWritingMode || isReadingMode) ? "pt-16 pb-24" : ""
+        )}>
+        {(isDeepWritingMode || isReadingMode) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(
+              "fixed h-8 w-8 p-0 rounded-full bg-background/20 hover:bg-background/40 z-[100]",
+              isReadingMode ? "bottom-8 left-1/2 -translate-x-1/2" : "top-6 right-6"
+            )}
+            onClick={isReadingMode ? () => setIsReadingMode(false) : onToggleDeepWritingMode}
+          >
+            {isReadingMode ? <X className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </Button>
+        )}
+
+        <div
+          ref={editorAreaRef}
+          className={cn(
+          "mx-auto transition-all duration-500",
+          isReadingMode ? "max-w-[640px]" : "max-w-3xl",
+          (isDeepWritingMode || isReadingMode) ? "px-4" : "px-8 py-8"
+        )}>
+          {/* Chapter title — always visible, editable in write/focus modes */}
+          <div
+            ref={inlineTitleRef}
+            contentEditable={!isReadingMode}
+            suppressContentEditableWarning
+            data-placeholder={s.chapterPlaceholder}
+            onInput={e => {
+              const text = e.currentTarget.textContent || "";
+              setTitle(text);
+              setIsDirty(true);
+            }}
+            className={cn(
+              "font-bold font-serif outline-none w-full break-words",
+              "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/30 empty:before:pointer-events-none",
+              isReadingMode
+                ? "text-4xl text-center mb-12 text-foreground cursor-default"
+                : isDeepWritingMode
+                  ? "text-3xl text-center mb-12 opacity-30"
+                  : "text-2xl mb-6 pb-5 border-b border-border/50 text-foreground/90"
+            )}
+          />
+          <div
+            className={cn(isReadingMode && "reading-mode-content")}
+            style={{
+              fontFamily: bookId ? bookSettings.fontFamily : undefined,
+              lineHeight: bookId ? bookSettings.lineHeight : undefined,
+              textAlign: bookId ? (bookSettings.textAlign as any) : undefined,
+            }}
+          >
+            <BlockEditor
+              key={chapter.id}
+              initialContent={chapter.content || ""}
+              onChange={(newBlocks) => {
+                setBlocks(newBlocks);
+                setIsDirty(true);
+              }}
+              hideControls={isReadingMode}
+              bookTitle={bookTitle}
+              bookMode={bookMode}
+              firstLineIndent={bookSettings.firstLineIndent ?? 1.2}
+            />
+          </div>
+        </div>
+
+        {(isDeepWritingMode || isReadingMode) && !isReadingMode && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/20 backdrop-blur-md border border-white/10 text-xs text-muted-foreground">
+            {wordCount} {s.words}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={!!improvementModal} onOpenChange={() => { setImprovementModal(null); setCustomInstruction(""); }}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden gap-0" style={{ borderRadius: "18px", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 24px 60px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06)" }}>
+
+          {/* Header — light platform style */}
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "#fff", borderBottom: "1px solid #f0ece8" }}>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(99,102,241,0.1)" }}>
+                <Sparkles className="w-3.5 h-3.5" style={{ color: "#6366f1" }} />
+              </div>
+              <span className="text-sm font-semibold" style={{ color: "#2d1b0e" }}>
+                {(MODE_LABELS[lang] ?? MODE_LABELS.en)[lastMode] ?? lastMode}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,0.08)", color: "#6366f1" }}>AI</span>
+            </div>
+            <button
+              onClick={() => { setImprovementModal(null); setCustomInstruction(""); }}
+              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:bg-black/05"
+            >
+              <X className="w-3.5 h-3.5" style={{ color: "#9a8a80" }} />
+            </button>
+          </div>
+
+          {/* Scrollable body */}
+          <div className="flex flex-col" style={{ background: "#FAF8F6", maxHeight: "65vh", overflowY: "auto" }}>
+
+            {/* Original */}
+            <div className="px-4 pt-4 pb-2">
+              <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#c0b8b0" }}>{s.original}</div>
+              <div className="text-[13px] leading-relaxed px-3 py-2.5 rounded-xl line-through" style={{ background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)", color: "#b0a9a0", textDecorationColor: "#d0c8c0" }}>
+                {improvementModal?.original}
+              </div>
+            </div>
+
+            {/* Arrow badge */}
+            <div className="flex items-center justify-center py-2">
+              <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: "rgba(99,102,241,0.08)", color: "#6366f1" }}>
+                <ArrowDownIcon className="w-3 h-3" />
+                <span>{(MODE_LABELS[lang] ?? MODE_LABELS.en)[lastMode] ?? lastMode}</span>
+              </div>
+            </div>
+
+            {/* Improved result */}
+            <div className="px-4 pb-4">
+              <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#22c55e" }}>{s.improved}</div>
+              <div className="rounded-xl px-3 py-3 text-[13px] leading-relaxed" style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", color: "#15803d", minHeight: "3rem" }}>
+                {isRegenerating
+                  ? <div className="flex items-center gap-2" style={{ color: "#15803d" }}><Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />{s.applying}</div>
+                  : improvementModal?.improved}
+              </div>
+            </div>
+
+            {/* Instruction row */}
+            <div className="px-4 pb-4 flex gap-2 items-center" style={{ borderTop: "1px solid #ede8e2", paddingTop: "12px" }}>
+              <input
+                type="text"
+                value={customInstruction}
+                onChange={e => setCustomInstruction(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleRegenerate()}
+                placeholder={s.customInstruction}
+                className="flex-1 h-8 rounded-lg border px-3 text-xs outline-none focus:border-indigo-300"
+                style={{ background: "white", borderColor: "#e4ddd8", color: "#4a4540" }}
+              />
+              <button
+                onClick={handleRegenerate}
+                disabled={isRegenerating}
+                className="h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-40 flex-shrink-0"
+                style={{ background: "rgba(99,102,241,0.08)", color: "#6366f1", border: "1px solid rgba(99,102,241,0.15)" }}
+              >
+                {isRegenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                {s.regenerate}
+              </button>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "#fff", borderTop: "1px solid #f0ece8" }}>
+            <button
+              onClick={() => { setImprovementModal(null); setCustomInstruction(""); }}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium transition-colors hover:bg-black/04"
+              style={{ color: "#a09890" }}
+            >
+              <X className="w-3.5 h-3.5" />
+              {s.reject}
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleInsertAsParagraph}
+                disabled={isRegenerating}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                style={{ background: "#f5f0eb", color: "#6b5a50", border: "1px solid #e8e0d8" }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {s.insertParagraph}
+              </button>
+              <button
+                onClick={handleApplyImprovement}
+                disabled={isRegenerating}
+                className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-40 hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #6366f1, #818CF8)", boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {s.accept}
+              </button>
+            </div>
+          </div>
+
+        </DialogContent>
+      </Dialog>
+
+      {/* Language Adaptation Modal — multi-step */}
+      <Dialog open={showAdaptModal} onOpenChange={v => {
+        setShowAdaptModal(v);
+        if (!v) { setAdaptDone(null); setAdaptLang(""); setAdaptStep("select-lang"); setSelectedExistingBookId(null); }
+      }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              {s.adaptModalTitle}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1 min-h-[160px]">
+            {/* SUCCESS */}
+            {adaptDone ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
+                    <Check className="h-4 w-4" />
+                    {s.adaptSuccess}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{adaptDone.message}</p>
+                </div>
+                {adaptDone.bookId && (
+                  <Button className="w-full gap-1.5" variant="outline" onClick={() => { setShowAdaptModal(false); navigate(`/book/${adaptDone!.bookId}`); }}>
+                    <Globe className="h-3.5 w-3.5" />
+                    {s.adaptGoTo}: {adaptDone.bookTitle}
+                  </Button>
+                )}
+              </div>
+            ) : adaptStep === "select-lang" ? (
+              /* STEP 1 — Language selection */
+              <>
+                <p className="text-sm text-muted-foreground leading-relaxed">{s.adaptDesc}</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{s.adaptSelectLang}</p>
+                  <div className="relative">
+                    <button
+                      onClick={() => setAdaptShowLangPicker(v => !v)}
+                      className="w-full flex items-center justify-between h-10 px-3 rounded-xl border border-border/60 bg-secondary text-sm"
+                    >
+                      <span className={adaptLang ? "text-foreground" : "text-muted-foreground"}>
+                        {adaptLang ? ADAPT_LANGUAGES.find(l => l.code === adaptLang)?.label || adaptLang : s.adaptSelectLang}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    {adaptShowLangPicker && (
+                      <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-xl border border-border/60 bg-background shadow-lg overflow-hidden">
+                        <div className="p-1 grid grid-cols-2 gap-0.5 max-h-52 overflow-y-auto">
+                          {ADAPT_LANGUAGES.map(l => (
+                            <button
+                              key={l.code}
+                              onClick={() => { setAdaptLang(l.code); setAdaptShowLangPicker(false); }}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors hover:bg-muted ${adaptLang === l.code ? "bg-primary/10 text-primary font-medium" : "text-foreground"}`}
+                            >
+                              {adaptLang === l.code && <Check className="h-3 w-3 flex-shrink-0" />}
+                              {l.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : adaptStep === "select-workflow" ? (
+              /* STEP 2 — Choose workflow */
+              <div className="space-y-3">
+                <p className="text-sm font-medium">{ADAPT_LANGUAGES.find(l => l.code === adaptLang)?.label || adaptLang}</p>
+                <button
+                  onClick={() => { setPendingWorkflow("new"); setAdaptStep("cost-preview"); }}
+                  disabled={adaptLoading}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-border/60 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <PlusSquare className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{s.adaptWorkflowNew}</p>
+                    <p className="text-xs text-muted-foreground">«{bookTitle} ({adaptLang} Adaptation)»</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setAdaptStep("select-book")}
+                  disabled={adaptLoading}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-border/60 hover:bg-muted/50 transition-colors text-left"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                    <BookOpen className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{s.adaptWorkflowExisting}</p>
+                    <p className="text-xs text-muted-foreground">{s.adaptExistingDesc}</p>
+                  </div>
+                </button>
+              </div>
+            ) : adaptStep === "select-book" ? (
+              /* STEP 3 — Select existing book */
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">{s.adaptExistingDesc}</p>
+                {allBooks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">{s.adaptNoBooks}</p>
+                ) : (
+                  <div className="space-y-1 max-h-52 overflow-y-auto">
+                    {allBooks.map(b => (
+                      <button
+                        key={b.id}
+                        onClick={() => setSelectedExistingBookId(b.id === selectedExistingBookId ? null : b.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors ${selectedExistingBookId === b.id ? "border-primary/50 bg-primary/5 text-foreground font-medium" : "border-border/40 hover:bg-muted/50 text-foreground"}`}
+                      >
+                        {selectedExistingBookId === b.id && <Check className="h-3 w-3 text-primary flex-shrink-0" />}
+                        <span className="truncate">{b.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : adaptStep === "cost-preview" ? (
+              /* STEP 4 — Cost preview */
+              (() => {
+                const text = blocksToPlainText(blocks);
+                const est = estimateAdaptCost(text);
+                const adaptMsgs = ADAPT_LOADING_MSGS[lang] ?? ADAPT_LOADING_MSGS.en;
+                const totalChunks = estimateChunkCount(text);
+                const estimatedPart = Math.min(adaptMsgIdx + 1, totalChunks);
+                return (
+                  <div className="space-y-3 relative">
+                    {adaptLoading && (
+                      <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm rounded-xl gap-3">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        {totalChunks > 1 && (
+                          <p className="text-xs font-semibold text-primary">{lang === "ru" ? `Часть ${estimatedPart} / ${totalChunks}` : lang === "ua" ? `Частина ${estimatedPart} / ${totalChunks}` : lang === "de" ? `Teil ${estimatedPart} / ${totalChunks}` : `Part ${estimatedPart} / ${totalChunks}`}</p>
+                        )}
+                        <p className="text-sm font-medium text-foreground animate-pulse">{adaptMsgs[adaptMsgIdx % adaptMsgs.length]}</p>
+                      </div>
+                    )}
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2.5">
+                      <p className="text-sm font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                        <DollarSign className="h-4 w-4" />
+                        {s.costPreviewTitle}
+                      </p>
+                      <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                        <span className="text-muted-foreground">{s.costWords}</span>
+                        <span className="text-right font-medium">{est.wordCount.toLocaleString()}</span>
+                        <span className="text-muted-foreground">{s.costInputTokens}</span>
+                        <span className="text-right font-medium">{est.estInputTokens.toLocaleString()}</span>
+                        <span className="text-muted-foreground">{s.costOutputTokens}</span>
+                        <span className="text-right font-medium">{est.estOutputTokens.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-2">
+                      <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                        <span className="text-muted-foreground">{s.costModel}</span>
+                        <span className="text-right font-semibold">{est.modelName}</span>
+                        <span className="col-span-2 text-[10px] text-muted-foreground/70">{s.costModelNote}</span>
+                        <span className="text-muted-foreground">{s.costInputRate}</span>
+                        <span className="text-right">${est.priceInput.toFixed(2)} / 1M</span>
+                        <span className="text-muted-foreground">{s.costOutputRate}</span>
+                        <span className="text-right">${est.priceOutput.toFixed(2)} / 1M</span>
+                      </div>
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                        <span className="text-sm font-medium">{s.costTotal}</span>
+                        <span className="text-lg font-bold text-primary">~${est.totalCost < 0.01 ? est.totalCost.toFixed(4) : est.totalCost.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/70 leading-snug">{s.costNote}</p>
+                  </div>
+                );
+              })()
+            ) : null}
+          </div>
+
+          <DialogFooter className="gap-2">
+            {adaptDone ? (
+              <Button variant="outline" onClick={() => { setShowAdaptModal(false); setAdaptDone(null); setAdaptLang(""); setAdaptStep("select-lang"); }}>
+                OK
+              </Button>
+            ) : adaptStep === "select-lang" ? (
+              <>
+                <Button variant="outline" onClick={() => setShowAdaptModal(false)}>{s.reject}</Button>
+                <Button disabled={!adaptLang} onClick={() => setAdaptStep("select-workflow")} className="gap-1.5">
+                  {s.adaptRun}
+                </Button>
+              </>
+            ) : adaptStep === "select-workflow" ? (
+              <>
+                <Button variant="outline" onClick={() => setAdaptStep("select-lang")}>{s.adaptBackToLang}</Button>
+              </>
+            ) : adaptStep === "select-book" ? (
+              <>
+                <Button variant="outline" onClick={() => setAdaptStep("select-workflow")}>{s.costBack}</Button>
+                <Button
+                  onClick={() => { setPendingWorkflow("existing"); setAdaptStep("cost-preview"); }}
+                  disabled={!selectedExistingBookId}
+                  className="gap-1.5"
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  {s.adaptChooseBook}
+                </Button>
+              </>
+            ) : adaptStep === "cost-preview" ? (
+              <>
+                <Button variant="outline" onClick={() => setAdaptStep(pendingWorkflow === "existing" ? "select-book" : "select-workflow")}>{s.costBack}</Button>
+                <Button
+                  onClick={() => handleAdaptLanguage(pendingWorkflow)}
+                  disabled={adaptLoading}
+                  className="gap-1.5"
+                >
+                  {adaptLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DollarSign className="h-3.5 w-3.5" />}
+                  {adaptLoading ? (ADAPT_LOADING_MSGS[lang] ?? ADAPT_LOADING_MSGS.en)[adaptMsgIdx % (ADAPT_LOADING_MSGS[lang] ?? ADAPT_LOADING_MSGS.en).length] : s.costConfirm}
+                </Button>
+              </>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <style>{`
+        .reading-mode-content {
+          font-size: 18px;
+          line-height: 1.9;
+          font-family: var(--font-writing);
+        }
+      `}</style>
+    </div>
+  );
+}
