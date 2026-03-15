@@ -31,7 +31,7 @@ import {
   Sparkles,
   RotateCcw,
 } from "lucide-react";
-import { BlockEditor, Block, blocksToPlainText } from "./block-editor";
+import { BlockEditor, Block, blocksToPlainText, BlockEditorAPI } from "./block-editor";
 import { cn } from "@/lib/utils";
 import { useBookSettings } from "@/hooks/use-book-settings";
 import {
@@ -450,6 +450,7 @@ export function ChapterEditor({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inlineTitleRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLDivElement>(null);
+  const blockEditorApiRef = useRef<BlockEditorAPI | null>(null);
 
   useEffect(() => {
     if (chapter) {
@@ -645,20 +646,24 @@ export function ChapterEditor({
   const handleApplyImprovement = () => {
     if (!improvementModal) return;
     const { original, improved } = improvementModal;
-    let replaced = false;
-    setBlocks(prev => prev.map(block => {
-      if (!replaced && block.content && block.content.includes(original)) {
-        replaced = true;
-        return { ...block, content: block.content.replace(original, improved) };
+    if (blockEditorApiRef.current) {
+      blockEditorApiRef.current.replaceTextInBlocks(original, improved);
+    } else {
+      let replaced = false;
+      setBlocks(prev => prev.map(block => {
+        if (!replaced && block.content && block.content.includes(original)) {
+          replaced = true;
+          return { ...block, content: block.content.replace(original, improved) };
+        }
+        return block;
+      }));
+      if (!replaced) {
+        setBlocks(prev => [...prev, {
+          id: Math.random().toString(36).substring(2, 11),
+          type: "paragraph" as any,
+          content: improved,
+        }]);
       }
-      return block;
-    }));
-    if (!replaced) {
-      setBlocks(prev => [...prev, {
-        id: Math.random().toString(36).substring(2, 11),
-        type: "paragraph" as any,
-        content: improved,
-      }]);
     }
     setIsDirty(true);
     setImprovementModal(null);
@@ -667,12 +672,16 @@ export function ChapterEditor({
 
   const handleInsertAsParagraph = () => {
     if (!improvementModal) return;
-    const newBlock: Block = {
-      id: Math.random().toString(36).substring(2, 11),
-      type: "paragraph",
-      content: improvementModal.improved,
-    };
-    setBlocks(prev => [...prev, newBlock]);
+    if (blockEditorApiRef.current) {
+      blockEditorApiRef.current.appendBlock(improvementModal.improved, "paragraph");
+    } else {
+      const newBlock: Block = {
+        id: Math.random().toString(36).substring(2, 11),
+        type: "paragraph",
+        content: improvementModal.improved,
+      };
+      setBlocks(prev => [...prev, newBlock]);
+    }
     setIsDirty(true);
     setImprovementModal(null);
     setCustomInstruction("");
@@ -963,6 +972,7 @@ export function ChapterEditor({
             <BlockEditor
               key={chapter.id}
               initialContent={chapter.content || ""}
+              onMounted={(api) => { blockEditorApiRef.current = api; }}
               onChange={(newBlocks) => {
                 setBlocks(newBlocks);
                 setIsDirty(true);
@@ -983,7 +993,7 @@ export function ChapterEditor({
       </div>
 
       <Dialog open={!!improvementModal} onOpenChange={() => { setImprovementModal(null); setCustomInstruction(""); }}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden gap-0" style={{ borderRadius: "18px", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 24px 60px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06)" }}>
+        <DialogContent hideCloseButton className="max-w-lg p-0 overflow-hidden gap-0" style={{ borderRadius: "18px", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 24px 60px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06)" }}>
 
           {/* Header — light platform style */}
           <div className="flex items-center justify-between px-4 py-3" style={{ background: "#fff", borderBottom: "1px solid #f0ece8" }}>

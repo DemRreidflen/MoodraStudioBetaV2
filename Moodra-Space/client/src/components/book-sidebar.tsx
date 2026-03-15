@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Chapter } from "@shared/schema";
@@ -7,33 +7,117 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Trash2, BookOpen, Layers, AlignLeft, Eye,
-  BookMarked, List, GripVertical
+  BookMarked, List, GripVertical, GripHorizontal
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLang } from "@/contexts/language-context";
 
-const CHAPTER_TYPES = [
-  { value: "prologue",    label: "Пролог",       icon: BookMarked, indent: 0, color: "#a78bfa" },
-  { value: "part",        label: "Часть",        icon: Layers,     indent: 0, color: "#8b5cf6" },
-  { value: "chapter",     label: "Глава",        icon: BookOpen,   indent: 1, color: "#F96D1C" },
-  { value: "subchapter",  label: "Подглава",     icon: AlignLeft,  indent: 2, color: "#f97316" },
-  { value: "section",     label: "Раздел",       icon: List,       indent: 2, color: "#6b7280" },
-  { value: "scene",       label: "Сцена",        icon: Eye,        indent: 3, color: "#94a3b8" },
-  { value: "epilogue",    label: "Эпилог",       icon: BookMarked, indent: 0, color: "#a78bfa" },
+const SIDEBAR_I18N = {
+  en: {
+    contents: "Contents",
+    addSection: "Add section",
+    noChapters: "No chapters",
+    addFirst: "Add first chapter",
+    add: "Add",
+    cancel: "Cancel",
+    titlePlaceholder: "Title…",
+    chapter: (n: number) => n === 1 ? "chapter" : "chapters",
+    types: {
+      prologue:   "Prologue",
+      part:       "Part",
+      chapter:    "Chapter",
+      subchapter: "Subchapter",
+      section:    "Section",
+      scene:      "Scene",
+      epilogue:   "Epilogue",
+    },
+    addSub: (label: string) => `+ ${label}`,
+  },
+  ru: {
+    contents: "Содержание",
+    addSection: "Добавить раздел",
+    noChapters: "Нет глав",
+    addFirst: "Добавить первую главу",
+    add: "Добавить",
+    cancel: "Отмена",
+    titlePlaceholder: "Название…",
+    chapter: (n: number) => n === 1 ? "глава" : n < 5 ? "главы" : "глав",
+    types: {
+      prologue:   "Пролог",
+      part:       "Часть",
+      chapter:    "Глава",
+      subchapter: "Подглава",
+      section:    "Раздел",
+      scene:      "Сцена",
+      epilogue:   "Эпилог",
+    },
+    addSub: (label: string) => `+ ${label}`,
+  },
+  ua: {
+    contents: "Зміст",
+    addSection: "Додати розділ",
+    noChapters: "Немає розділів",
+    addFirst: "Додати перший розділ",
+    add: "Додати",
+    cancel: "Скасувати",
+    titlePlaceholder: "Назва…",
+    chapter: (n: number) => n === 1 ? "розділ" : n < 5 ? "розділи" : "розділів",
+    types: {
+      prologue:   "Пролог",
+      part:       "Частина",
+      chapter:    "Розділ",
+      subchapter: "Підрозділ",
+      section:    "Секція",
+      scene:      "Сцена",
+      epilogue:   "Епілог",
+    },
+    addSub: (label: string) => `+ ${label}`,
+  },
+  de: {
+    contents: "Inhalt",
+    addSection: "Abschnitt hinzufügen",
+    noChapters: "Keine Kapitel",
+    addFirst: "Erstes Kapitel hinzufügen",
+    add: "Hinzufügen",
+    cancel: "Abbrechen",
+    titlePlaceholder: "Titel…",
+    chapter: (n: number) => n === 1 ? "Kapitel" : "Kapitel",
+    types: {
+      prologue:   "Prolog",
+      part:       "Teil",
+      chapter:    "Kapitel",
+      subchapter: "Unterkapitel",
+      section:    "Abschnitt",
+      scene:      "Szene",
+      epilogue:   "Epilog",
+    },
+    addSub: (label: string) => `+ ${label}`,
+  },
+};
+
+const CHAPTER_TYPES_BASE = [
+  { value: "prologue",    icon: BookMarked, indent: 0, color: "#a78bfa" },
+  { value: "part",        icon: Layers,     indent: 0, color: "#8b5cf6" },
+  { value: "chapter",     icon: BookOpen,   indent: 1, color: "#F96D1C" },
+  { value: "subchapter",  icon: AlignLeft,  indent: 2, color: "#f97316" },
+  { value: "section",     icon: List,       indent: 2, color: "#6b7280" },
+  { value: "scene",       icon: Eye,        indent: 3, color: "#94a3b8" },
+  { value: "epilogue",    icon: BookMarked, indent: 0, color: "#a78bfa" },
 ];
 
 function getTypeIcon(type: string) {
-  const found = CHAPTER_TYPES.find(t => t.value === type);
+  const found = CHAPTER_TYPES_BASE.find(t => t.value === type);
   return found ? found.icon : BookOpen;
 }
 
 function getTypeColor(type: string) {
-  const found = CHAPTER_TYPES.find(t => t.value === type);
+  const found = CHAPTER_TYPES_BASE.find(t => t.value === type);
   return found ? found.color : "#6b7280";
 }
 
 function getTypeIndent(type: string) {
-  const found = CHAPTER_TYPES.find(t => t.value === type);
+  const found = CHAPTER_TYPES_BASE.find(t => t.value === type);
   return found ? found.indent : 1;
 }
 
@@ -55,14 +139,52 @@ interface Props {
   onSelect: (id: number) => void;
 }
 
+const MIN_WIDTH = 160;
+const MAX_WIDTH = 480;
+const DEFAULT_WIDTH = 224;
+
 export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }: Props) {
   const { toast } = useToast();
+  const { lang } = useLang();
+  const s = SIDEBAR_I18N[lang as keyof typeof SIDEBAR_I18N] ?? SIDEBAR_I18N.en;
+
   const [adding, setAdding] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState("chapter");
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const dragCounter = useRef(0);
+
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
+  const isResizing = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(DEFAULT_WIDTH);
+
+  const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    startX.current = e.clientX;
+    startWidth.current = sidebarWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizing.current) return;
+      const delta = ev.clientX - startX.current;
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth.current + delta));
+      setSidebarWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [sidebarWidth]);
+
+  const CHAPTER_TYPES = CHAPTER_TYPES_BASE.map(t => ({
+    ...t,
+    label: (s.types as any)[t.value] ?? t.value,
+  }));
 
   const addChapterMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", `/api/books/${bookId}/chapters`, data),
@@ -72,7 +194,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
       setNewTitle("");
       onSelect(chapter.id);
     },
-    onError: () => toast({ title: "Ошибка создания главы", variant: "destructive" }),
+    onError: () => toast({ title: s.types.chapter, variant: "destructive" }),
   });
 
   const deleteChapterMutation = useMutation({
@@ -144,12 +266,15 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
   };
 
   return (
-    <aside className="w-56 border-r border-border flex flex-col flex-shrink-0 bg-sidebar">
+    <aside
+      className="border-r border-border flex flex-col flex-shrink-0 bg-sidebar relative"
+      style={{ width: sidebarWidth, minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH }}
+    >
       <div className="px-3 py-3 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <BookMarked className="h-3.5 w-3.5 text-muted-foreground/70" />
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Содержание
+        <div className="flex items-center gap-1.5 min-w-0">
+          <BookMarked className="h-3.5 w-3.5 text-muted-foreground/70 flex-shrink-0" />
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
+            {s.contents}
           </span>
         </div>
         <Tooltip>
@@ -157,14 +282,14 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-6 w-6 text-muted-foreground hover:text-foreground flex-shrink-0"
               onClick={() => setAdding(!adding)}
               data-testid="button-add-chapter"
             >
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">Добавить раздел</TooltipContent>
+          <TooltipContent side="right">{s.addSection}</TooltipContent>
         </Tooltip>
       </div>
 
@@ -173,12 +298,12 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
           {chapters.length === 0 && !adding && (
             <div className="px-2 py-6 text-center">
               <BookOpen className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">Нет глав</p>
+              <p className="text-xs text-muted-foreground">{s.noChapters}</p>
               <button
                 className="text-xs text-primary mt-1 hover:underline"
                 onClick={() => setAdding(true)}
               >
-                Добавить первую главу
+                {s.addFirst}
               </button>
             </div>
           )}
@@ -193,6 +318,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
             const isDragOver = dragOverIdx === idx && draggedIdx !== idx;
 
             const subType = getSubType(ch.type || "chapter");
+            const subTypeLabel = subType ? (s.types as any)[subType] ?? subType : null;
 
             return (
               <div
@@ -229,7 +355,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
                 <span className={`truncate flex-1 text-xs ${isPart ? "font-semibold" : "font-medium"}`}>
                   {ch.title}
                 </span>
-                {subType && (
+                {subType && subTypeLabel && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -245,7 +371,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="text-xs">
-                      + {CHAPTER_TYPES.find(t => t.value === subType)?.label}
+                      {s.addSub(subTypeLabel)}
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -260,7 +386,6 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
             );
           })}
 
-          {/* Add form */}
           {adding && (
             <div className="mt-2 px-1 space-y-2">
               <div className="flex gap-1 flex-wrap">
@@ -284,7 +409,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
               </div>
               <Input
                 data-testid="input-chapter-title"
-                placeholder="Название..."
+                placeholder={s.titlePlaceholder}
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => {
@@ -302,7 +427,7 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
                   disabled={!newTitle.trim()}
                   data-testid="button-confirm-add-chapter"
                 >
-                  Добавить
+                  {s.add}
                 </Button>
                 <Button
                   size="sm"
@@ -320,7 +445,17 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
 
       <div className="p-2 border-t border-border">
         <div className="text-xs text-muted-foreground text-center">
-          {chapters.length} {chapters.length === 1 ? "глава" : chapters.length < 5 ? "главы" : "глав"}
+          {chapters.length} {s.chapter(chapters.length)}
+        </div>
+      </div>
+
+      <div
+        className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary/20 transition-colors group z-10"
+        onMouseDown={handleResizeMouseDown}
+        title="Drag to resize"
+      >
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-hover:opacity-60 transition-opacity">
+          <GripHorizontal className="h-3 w-3 text-muted-foreground rotate-90" />
         </div>
       </div>
     </aside>

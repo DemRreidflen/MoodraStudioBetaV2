@@ -456,6 +456,7 @@ interface BlockEditorProps {
 
 export type BlockEditorAPI = {
   replaceTextInBlocks: (original: string, replacement: string) => boolean;
+  appendBlock: (content: string, type?: string) => void;
 };
 
 const BLOCK_TYPES: { type: BlockType; icon: any }[] = [
@@ -565,6 +566,14 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
           return prev;
         });
         return replaced;
+      },
+      appendBlock: (content: string, type = "paragraph"): void => {
+        const newBlock = { id: Math.random().toString(36).substring(2, 11), type: type as any, content };
+        setBlocks(prev => {
+          const appended = [...prev, newBlock];
+          onChange(appended);
+          return appended;
+        });
       },
     };
     onMountedRef.current?.(api);

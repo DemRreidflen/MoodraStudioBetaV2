@@ -512,6 +512,47 @@ body[data-view="spread"] .pagedjs_page:nth-child(2n) {
 .pagedjs_page_content {
   overflow-x: visible;
 }
+
+/* ── Pagedjs margin boxes — remove any accidental backgrounds ── */
+.pagedjs_margin,
+.pagedjs_margin-top,
+.pagedjs_margin-top-left,
+.pagedjs_margin-top-center,
+.pagedjs_margin-top-right,
+.pagedjs_margin-bottom,
+.pagedjs_margin-bottom-left,
+.pagedjs_margin-bottom-center,
+.pagedjs_margin-bottom-right,
+.pagedjs_margin-left,
+.pagedjs_margin-left-top,
+.pagedjs_margin-left-middle,
+.pagedjs_margin-left-bottom,
+.pagedjs_margin-right,
+.pagedjs_margin-right-top,
+.pagedjs_margin-right-middle,
+.pagedjs_margin-right-bottom,
+.pagedjs_margin-top-left-corner,
+.pagedjs_margin-top-right-corner,
+.pagedjs_margin-bottom-left-corner,
+.pagedjs_margin-bottom-right-corner {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure the sheet (printable area wrapper) has no extra bottom area */
+.pagedjs_sheet {
+  background: transparent !important;
+}
+.pagedjs_bleed,
+.pagedjs_bleed-top,
+.pagedjs_bleed-bottom,
+.pagedjs_bleed-left,
+.pagedjs_bleed-right {
+  background: transparent !important;
+  display: none !important;
+}
 `;
 }
 
