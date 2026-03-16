@@ -79,7 +79,7 @@ const FEATURES: Record<string, LangData> = {
       {
         icon: ScrollText,
         color: "#0EA5E9",
-        badge: "Updated",
+        badge: "In Development",
         title: "Drafts & Role Models",
         subtitle: "50/50 split workspace: write experimental drafts on one side, manage author role models on the other — in one seamless panel.",
         items: [
@@ -279,7 +279,7 @@ const FEATURES: Record<string, LangData> = {
       {
         icon: ScrollText,
         color: "#0EA5E9",
-        badge: "Обновлено",
+        badge: "В разработке",
         title: "Черновики и ролевые модели",
         subtitle: "Рабочее пространство 50/50: черновики свободного письма — справа, профили авторов-ориентиров — слева.",
         items: [
@@ -479,7 +479,7 @@ const FEATURES: Record<string, LangData> = {
       {
         icon: ScrollText,
         color: "#0EA5E9",
-        badge: "Оновлено",
+        badge: "В розробці",
         title: "Чорновики та рольові моделі",
         subtitle: "Робочий простір 50/50: чорновики вільного письма — праворуч, профілі авторів-орієнтирів — ліворуч.",
         items: [
@@ -678,7 +678,7 @@ const FEATURES: Record<string, LangData> = {
       {
         icon: ScrollText,
         color: "#0EA5E9",
-        badge: "Aktualisiert",
+        badge: "In Entwicklung",
         title: "Entwürfe & Vorbilder",
         subtitle: "50/50-Arbeitsbereich: freie Entwürfe auf einer Seite, Autoren-Vorbilder auf der anderen — in einem nahtlosen Panel.",
         items: [
