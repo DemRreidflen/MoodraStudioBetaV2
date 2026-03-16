@@ -281,7 +281,7 @@ export default function BookEditor() {
 
 
           {activeTab === "characters" && <CharactersPanel bookId={bookId} />}
-          {activeTab === "notes" && <NotesPanel bookId={bookId} />}
+          {activeTab === "notes" && <NotesPanel bookId={bookId} aiPanelOpen={showAI} />}
           {activeTab === "research" && <ResearchPanel bookId={bookId} book={book} />}
           {activeTab === "board" && <IdeaBoard bookId={bookId} book={book} />}
           {activeTab === "layout" && <LayoutMode bookId={bookId} book={book} />}

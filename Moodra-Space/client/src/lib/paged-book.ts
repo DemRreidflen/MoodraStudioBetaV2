@@ -382,11 +382,8 @@ hr.bdiv {
 }
 
 
-/* First paragraph of a chapter or after any heading has no indent */
-.ch-body > p:first-child { text-indent: 0; }
-
-/* Mark continuation paragraphs (from page break mid-paragraph) */
-.ch-body > .ch-body + .ch-body > p:first-child { text-indent: 0; }
+/* After headings: no indent on immediately following paragraph */
+.ch-body > h2 + p, .ch-body > h3 + p, .ch-body > h4 + p { text-indent: 0; }
 
 /* ── Front-matter pages ─────────────────────────────────────── */
 .front-matter-page {

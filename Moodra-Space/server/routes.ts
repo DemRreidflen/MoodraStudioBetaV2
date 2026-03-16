@@ -373,12 +373,96 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  app.get("/api/books/:bookId/notes/trash", async (req: Request, res: Response) => {
+    try {
+      const trashed = await storage.getTrashedNotes(Number(req.params.bookId));
+      res.json(trashed);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to load trash" });
+    }
+  });
+
+  app.patch("/api/notes/:id/trash", async (req: Request, res: Response) => {
+    try {
+      await storage.trashNote(Number(req.params.id));
+      res.status(204).send();
+    } catch (e) {
+      res.status(500).json({ error: "Failed to trash note" });
+    }
+  });
+
+  app.patch("/api/notes/:id/restore", async (req: Request, res: Response) => {
+    try {
+      await storage.restoreNote(Number(req.params.id));
+      res.status(204).send();
+    } catch (e) {
+      res.status(500).json({ error: "Failed to restore note" });
+    }
+  });
+
   app.delete("/api/notes/:id", async (req: Request, res: Response) => {
     try {
       await storage.deleteNote(Number(req.params.id));
       res.status(204).send();
     } catch (e) {
       res.status(500).json({ error: "Ошибка удаления заметки" });
+    }
+  });
+
+  app.post("/api/books/:bookId/notes/trash-collection", async (req: Request, res: Response) => {
+    try {
+      const { collection } = req.body;
+      if (!collection) return res.status(400).json({ error: "collection required" });
+      await storage.trashCollectionNotes(Number(req.params.bookId), collection);
+      res.status(204).send();
+    } catch (e) {
+      res.status(500).json({ error: "Failed to trash collection" });
+    }
+  });
+
+  app.get("/api/notes/:id/attachments", async (req: Request, res: Response) => {
+    try {
+      const attachments = await storage.getAttachments(Number(req.params.id));
+      res.json(attachments.map(a => ({ ...a, fileContent: undefined, hasFile: true })));
+    } catch (e) {
+      res.status(500).json({ error: "Failed to load attachments" });
+    }
+  });
+
+  app.get("/api/attachments/:id/download", async (req: Request, res: Response) => {
+    try {
+      const { db: dbConn } = await import("./db");
+      const { noteAttachments: attTable } = await import("@shared/schema");
+      const { eq: eqFn } = await import("drizzle-orm");
+      const [attachment] = await dbConn.select().from(attTable).where(eqFn(attTable.id, Number(req.params.id)));
+      if (!attachment) return res.status(404).json({ error: "Not found" });
+      const buf = Buffer.from(attachment.fileContent, "base64");
+      res.set("Content-Type", attachment.fileType || "application/octet-stream");
+      res.set("Content-Disposition", `attachment; filename="${attachment.fileName}"`);
+      res.send(buf);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to download" });
+    }
+  });
+
+  app.post("/api/notes/:id/attachments", async (req: Request, res: Response) => {
+    try {
+      const { fileName, fileType, fileSize, fileContent } = req.body;
+      if (!fileName || !fileContent) return res.status(400).json({ error: "fileName and fileContent required" });
+      if (fileSize > 5 * 1024 * 1024) return res.status(400).json({ error: "File too large (max 5MB)" });
+      const att = await storage.createAttachment({ noteId: Number(req.params.id), fileName, fileType: fileType || "", fileSize: fileSize || 0, fileContent });
+      res.status(201).json({ ...att, fileContent: undefined });
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/attachments/:id", async (req: Request, res: Response) => {
+    try {
+      await storage.deleteAttachment(Number(req.params.id));
+      res.status(204).send();
+    } catch (e) {
+      res.status(500).json({ error: "Failed to delete attachment" });
     }
   });
 

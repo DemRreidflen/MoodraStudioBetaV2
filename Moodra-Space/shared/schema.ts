@@ -91,21 +91,32 @@ export const notes = pgTable("notes", {
   chapterId: integer("chapter_id"),
   title: text("title").notNull(),
   content: text("content").default(""),
-  type: text("type").default("quick_thought"),
+  type: text("type").default(""),
   tags: text("tags").default(""),
   color: text("color").default("yellow"),
-  status: text("status").default("inbox"),
+  status: text("status").default(""),
   collection: text("collection").default(""),
   collectionIds: text("collection_ids").default(""),
   isPinned: text("is_pinned").default("false"),
   isQuick: text("is_quick").default("false"),
-  importance: text("importance").default("normal"),
+  importance: text("importance").default(""),
   linkedNoteIds: text("linked_note_ids").default(""),
   linkedSourceIds: text("linked_source_ids").default(""),
   linkedDraftIds: text("linked_draft_ids").default(""),
   semanticTags: text("semantic_tags").default(""),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestamp("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+export const noteAttachments = pgTable("note_attachments", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  noteId: integer("note_id").notNull().references(() => notes.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileType: text("file_type").default(""),
+  fileSize: integer("file_size").default(0),
+  fileContent: text("file_content").notNull(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 export const noteCollections = pgTable("note_collections", {
@@ -203,7 +214,8 @@ export const authorRoleModels = pgTable("author_role_models", {
 export const insertBookSchema = createInsertSchema(books).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertChapterSchema = createInsertSchema(chapters).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertCharacterSchema = createInsertSchema(characters).omit({ id: true, createdAt: true });
-export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNoteSchema = createInsertSchema(notes).omit({ id: true, createdAt: true, updatedAt: true, deletedAt: true });
+export const insertNoteAttachmentSchema = createInsertSchema(noteAttachments).omit({ id: true, createdAt: true });
 export const insertSourceSchema = createInsertSchema(sources).omit({ id: true, createdAt: true });
 export const insertHypothesisSchema = createInsertSchema(hypotheses).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertDraftSchema = createInsertSchema(drafts).omit({ id: true, createdAt: true, updatedAt: true });
@@ -219,6 +231,8 @@ export type Character = typeof characters.$inferSelect;
 export type InsertCharacter = z.infer<typeof insertCharacterSchema>;
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
+export type NoteAttachment = typeof noteAttachments.$inferSelect;
+export type InsertNoteAttachment = z.infer<typeof insertNoteAttachmentSchema>;
 export type Source = typeof sources.$inferSelect;
 export type InsertSource = z.infer<typeof insertSourceSchema>;
 export type Hypothesis = typeof hypotheses.$inferSelect;

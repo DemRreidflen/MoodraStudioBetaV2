@@ -1,13 +1,14 @@
 import { db } from "./db";
-import { books, chapters, characters, notes, sources, users, hypotheses, boards, drafts, noteCollections, authorRoleModels } from "@shared/schema";
+import { books, chapters, characters, notes, noteAttachments, sources, users, hypotheses, boards, drafts, noteCollections, authorRoleModels } from "@shared/schema";
 import type {
   Book, InsertBook, Chapter, InsertChapter, Character, InsertCharacter,
   Note, InsertNote, Source, InsertSource, User,
   Hypothesis, InsertHypothesis, Board, Draft, InsertDraft,
   NoteCollection, InsertNoteCollection,
+  NoteAttachment, InsertNoteAttachment,
   AuthorRoleModel, InsertAuthorRoleModel
 } from "@shared/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, isNull, isNotNull, and, gt } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -32,9 +33,16 @@ export interface IStorage {
   deleteCharacter(id: number): Promise<void>;
 
   getNotes(bookId: number): Promise<Note[]>;
+  getTrashedNotes(bookId: number): Promise<Note[]>;
   createNote(note: InsertNote): Promise<Note>;
   updateNote(id: number, data: Partial<InsertNote>): Promise<Note | undefined>;
+  trashNote(id: number): Promise<void>;
+  restoreNote(id: number): Promise<void>;
   deleteNote(id: number): Promise<void>;
+  trashCollectionNotes(bookId: number, collection: string): Promise<void>;
+  getAttachments(noteId: number): Promise<NoteAttachment[]>;
+  createAttachment(data: InsertNoteAttachment): Promise<NoteAttachment>;
+  deleteAttachment(id: number): Promise<void>;
 
   getSources(bookId: number): Promise<Source[]>;
   createSource(source: InsertSource): Promise<Source>;
@@ -140,7 +148,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNotes(bookId: number) {
-    return db.select().from(notes).where(eq(notes.bookId, bookId)).orderBy(desc(notes.updatedAt));
+    return db.select().from(notes).where(and(eq(notes.bookId, bookId), isNull(notes.deletedAt))).orderBy(desc(notes.updatedAt));
+  }
+  async getTrashedNotes(bookId: number) {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return db.select().from(notes).where(and(eq(notes.bookId, bookId), isNotNull(notes.deletedAt), gt(notes.deletedAt, thirtyDaysAgo))).orderBy(desc(notes.deletedAt));
   }
   async createNote(note: InsertNote) {
     const [n] = await db.insert(notes).values(note).returning();
@@ -150,8 +162,27 @@ export class DatabaseStorage implements IStorage {
     const [n] = await db.update(notes).set({ ...data, updatedAt: new Date() }).where(eq(notes.id, id)).returning();
     return n;
   }
+  async trashNote(id: number) {
+    await db.update(notes).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(notes.id, id));
+  }
+  async restoreNote(id: number) {
+    await db.update(notes).set({ deletedAt: null, updatedAt: new Date() }).where(eq(notes.id, id));
+  }
   async deleteNote(id: number) {
     await db.delete(notes).where(eq(notes.id, id));
+  }
+  async trashCollectionNotes(bookId: number, collection: string) {
+    await db.update(notes).set({ deletedAt: new Date(), collection: "", updatedAt: new Date() }).where(and(eq(notes.bookId, bookId), eq(notes.collection, collection), isNull(notes.deletedAt)));
+  }
+  async getAttachments(noteId: number) {
+    return db.select().from(noteAttachments).where(eq(noteAttachments.noteId, noteId)).orderBy(asc(noteAttachments.createdAt));
+  }
+  async createAttachment(data: InsertNoteAttachment) {
+    const [a] = await db.insert(noteAttachments).values(data).returning();
+    return a;
+  }
+  async deleteAttachment(id: number) {
+    await db.delete(noteAttachments).where(eq(noteAttachments.id, id));
   }
 
   async getSources(bookId: number) {

@@ -896,6 +896,18 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
     updateBlocks(blocks.map(b => b.id === id ? { ...b, content } : b));
   };
 
+  const splitBlock = (id: string, index: number, beforeContent: string, afterContent: string, indentLevel = 0) => {
+    if (hideControls) return;
+    const newBlock: Block = {
+      id: generateId(), type: "paragraph", content: afterContent,
+      ...(indentLevel > 0 ? { metadata: { indentLevel } } : {}),
+    };
+    const updated = blocks.map(b => b.id === id ? { ...b, content: beforeContent } : b);
+    updated.splice(index + 1, 0, newBlock);
+    updateBlocks(updated);
+    setFocusedBlockId(newBlock.id);
+  };
+
   const updateBlockType = (id: string, type: BlockType) => {
     if (hideControls) return;
     updateBlocks(blocks.map(b => b.id === id ? { ...b, type } : b));
@@ -1114,6 +1126,7 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
                   onUpdateType={(type) => updateBlockType(block.id, type)}
                   onUpdateMetadata={(metadata) => updateBlockMetadata(block.id, metadata)}
                   onAddBlock={(type, content, indentLevel) => addBlock(index, type ?? "paragraph", content ?? "", indentLevel ?? 0)}
+                  onSplitBlock={(before, after, indentLevel) => splitBlock(block.id, index, before, after, indentLevel ?? 0)}
                   onDelete={() => deleteBlock(block.id)}
                   onPasteBlocks={(paragraphs) => handlePasteBlocks(block.id, paragraphs)}
                   onMergeWithPrevious={index > 0 ? (content) => mergeWithPrevious(block.id, content) : undefined}
@@ -1140,6 +1153,7 @@ interface SortableBlockProps {
   onUpdateType: (type: BlockType) => void;
   onUpdateMetadata: (metadata: any) => void;
   onAddBlock: (type?: BlockType, initialContent?: string, indentLevel?: number) => void;
+  onSplitBlock: (beforeContent: string, afterContent: string, indentLevel?: number) => void;
   onDelete: () => void;
   onPasteBlocks?: (paragraphs: string[]) => void;
   onMergeWithPrevious?: (content: string) => void;
@@ -1189,6 +1203,7 @@ function SortableBlock({
   onUpdateType,
   onUpdateMetadata,
   onAddBlock,
+  onSplitBlock,
   onDelete,
   onPasteBlocks,
   onMergeWithPrevious,
@@ -1314,8 +1329,7 @@ function SortableBlock({
             const htmlBefore = tempBefore.innerHTML;
             const htmlAfter = tempAfter.innerHTML;
             el.innerHTML = htmlBefore;
-            onUpdateContent(htmlBefore);
-            onAddBlock(undefined, htmlAfter, currentIndent);
+            onSplitBlock(htmlBefore, htmlAfter, currentIndent);
           } catch {
             onAddBlock(undefined, undefined, currentIndent);
           }
