@@ -13,9 +13,10 @@ import {
   Feather, Layers, Music2, Hash, Target, Heart, Wrench, AlignLeft, Eye,
   Save, ArrowLeft, Clock, AlignCenter, BarChart3, Lightbulb, RefreshCw,
   Check, Trash2, Link2, BookCopy, SendToBack, GitBranch, Wand2,
-  Minus, ChevronsLeftRight, Timer, Keyboard,
+  Minus, ChevronsLeftRight, Timer, Keyboard, ArrowDown,
 } from "lucide-react";
-import { BlockEditor, Block, blocksToPlainText } from "@/components/block-editor";
+import { BlockEditor, Block, blocksToPlainText, BlockEditorAPI } from "@/components/block-editor";
+import { SelectionToolbar } from "@/components/selection-toolbar";
 import { RoleModelsTab } from "@/components/role-models-tab";
 import { AiPanel } from "@/components/ai-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -925,6 +926,9 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
   const [tipLoading, setTipLoading] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const editorAreaRef = useRef<HTMLDivElement>(null);
+  const blockEditorApiRef = useRef<BlockEditorAPI | null>(null);
+  const [improvementModal, setImprovementModal] = useState<{ original: string; improved: string; mode: string } | null>(null);
   const [isTypewriterMode, setIsTypewriterMode] = useState(false);
   const [sprintExpanded, setSprintExpanded] = useState(false);
   const [sprintGoal, setSprintGoal] = useState("500");
@@ -1187,14 +1191,22 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
         </div>
       )}
 
+      {/* Selection Toolbar */}
+      <SelectionToolbar
+        containerRef={editorAreaRef as React.RefObject<HTMLElement>}
+        bookTitle={book.title}
+        onResult={(original, improved, mode) => setImprovementModal({ original, improved, mode })}
+      />
+
       {/* Block editor + optional AI panel */}
       <div className="flex-1 flex overflow-hidden">
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto" style={{ zoom: fontScale / 100 }}>
-          <div style={{ maxWidth, margin: "0 auto" }}>
+          <div ref={editorAreaRef} style={{ maxWidth, margin: "0 auto" }}>
             <BlockEditor
               key={draft.id}
               initialContent={draft.content || ""}
               onChange={newBlocks => { setBlocks(newBlocks); setIsDirty(true); }}
+              onMounted={api => { blockEditorApiRef.current = api; }}
             />
           </div>
         </div>
@@ -1302,6 +1314,74 @@ function DraftEditor({ draft, bookId, book, chapters, onBack }: {
                 {moving ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendToBack className="h-4 w-4" />}
                 {moving ? t.movingBtn : t.moveBtn}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Improvement Modal */}
+      {improvementModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setImprovementModal(null)}>
+          <div className="bg-background rounded-2xl border border-border shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(99,102,241,0.1)" }}>
+                  <Sparkles className="w-3.5 h-3.5" style={{ color: "#6366f1" }} />
+                </div>
+                <span className="text-sm font-semibold">{improvementModal.mode}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(99,102,241,0.08)", color: "#6366f1" }}>AI</span>
+              </div>
+              <button onClick={() => setImprovementModal(null)} className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-secondary transition-colors">
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="flex flex-col max-h-[60vh] overflow-y-auto p-4 gap-3">
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5 text-muted-foreground/50">Оригинал</div>
+                <div className="text-[13px] leading-relaxed px-3 py-2.5 rounded-xl line-through text-muted-foreground/60" style={{ background: "rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.06)" }}>
+                  {improvementModal.original}
+                </div>
+              </div>
+              <div className="flex items-center justify-center">
+                <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: "rgba(99,102,241,0.08)", color: "#6366f1" }}>
+                  <ArrowDown className="w-3 h-3" />
+                  <span>{improvementModal.mode}</span>
+                </div>
+              </div>
+              <div>
+                <div className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: "#22c55e" }}>Улучшено</div>
+                <div className="rounded-xl px-3 py-3 text-[13px] leading-relaxed" style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", color: "#15803d" }}>
+                  {improvementModal.improved}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border/50">
+              <button onClick={() => setImprovementModal(null)} className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary transition-colors">
+                <X className="w-3.5 h-3.5" />
+                Отмена
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (blockEditorApiRef.current) blockEditorApiRef.current.appendBlock(improvementModal.improved, "paragraph");
+                    setImprovementModal(null);
+                  }}
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-sm font-medium transition-colors"
+                  style={{ background: "#f5f0eb", color: "#6b5a50", border: "1px solid #e8e0d8" }}>
+                  <Plus className="w-3.5 h-3.5" />
+                  Добавить абзац
+                </button>
+                <button
+                  onClick={() => {
+                    if (blockEditorApiRef.current) blockEditorApiRef.current.replaceTextInBlocks(improvementModal.original, improvementModal.improved);
+                    setImprovementModal(null);
+                  }}
+                  className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #818cf8)" }}>
+                  <Check className="w-3.5 h-3.5" />
+                  Применить
+                </button>
+              </div>
             </div>
           </div>
         </div>

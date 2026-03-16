@@ -2,12 +2,14 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useFreeMode } from "@/hooks/use-free-mode";
+import { useLocation } from "wouter";
 import type { AuthorRoleModel, Book } from "@shared/schema";
 import {
   Plus, Trash2, ChevronLeft, Loader2, Sparkles, Upload,
   Brain, AlignLeft, Layers, Music2, Hash, Target, Heart,
   Wrench, Pencil, Check, X, RefreshCw, BookOpen, User,
-  Feather, Eye, Zap, ChevronDown, ChevronUp
+  Feather, Eye, Zap, ChevronDown, ChevronUp, Key,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -90,6 +92,8 @@ const ANALYSIS_SECTIONS: Array<{
 
 export function RoleModelsTab({ bookId, book }: { bookId: number; book: Book }) {
   const { toast } = useToast();
+  const { isFreeMode } = useFreeMode();
+  const [, navigate] = useLocation();
   const [view, setView] = useState<View>("list");
   const [editModel, setEditModel] = useState<AuthorRoleModel | null>(null);
 
@@ -210,6 +214,32 @@ export function RoleModelsTab({ bookId, book }: { bookId: number; book: Book }) 
     await updateMutation.mutateAsync({ id: editModel.id, data: { [key]: sectionDraft } });
     setEditingSection(null);
   };
+
+  // ── API key gate ───────────────────────────────────────────────────────────
+
+  if (isFreeMode) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-5 px-6 text-center">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "rgba(139,92,246,0.1)", border: "1.5px solid rgba(139,92,246,0.2)" }}>
+          <Key className="h-7 w-7" style={{ color: "#8B5CF6" }} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-base font-bold">Требуется API ключ</h3>
+          <p className="text-xs text-muted-foreground/70 max-w-[260px] leading-relaxed">
+            Ролевые модели авторов используют продвинутые AI модели. Подключите собственный OpenAI API ключ, чтобы использовать эту функцию без ограничений.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/settings")}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+          style={{ background: "linear-gradient(135deg, #8B5CF6, #6366F1)" }}
+        >
+          <Key className="h-4 w-4" />
+          Подключить API →
+        </button>
+      </div>
+    );
+  }
 
   // ── List view ──────────────────────────────────────────────────────────────
 

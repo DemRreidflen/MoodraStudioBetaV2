@@ -733,7 +733,19 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
   "styleInstruction": "A dense, precise, actionable system instruction (3–5 sentences) for an AI writing assistant to produce text in this author's style and cognitive register. Must be specific enough to produce recognisably similar output — not just 'write clearly' but 'use short declarative sentences followed by a longer elaborating sentence; open with a provocative claim; avoid hedging language; prefer concrete metaphors drawn from physical experience'."
 }${customInstruction ? `\n\nAdditional focus instruction from the user: ${customInstruction}` : ""}`;
 
-    const userPrompt = `Perform a deep author style reconstruction on the following text. Return the JSON object with all 9 fields filled in full detail:\n\n---\n${rawSourceText.slice(0, 8000)}\n---`;
+    // System prompt for the "fast pattern scanner" — gpt-4o-mini
+    const systemPromptMini = `${systemPrompt}
+
+FOCUS FOR THIS PASS: Surface-level style patterns, sentence architecture, vocabulary tendencies, rhythm, and reusable techniques. Be extremely concrete and specific — name exact patterns, quote representative sentence structures, identify signature devices.`;
+
+    // System prompt for the "deep cognitive analyst" — gpt-4o
+    const systemPromptDeep = `${systemPrompt}
+
+FOCUS FOR THIS PASS: Deep cognitive reconstruction — intellectual method, conceptual architecture, argument logic, emotional dynamics, and the hidden mental models that drive the writing. Go beyond the surface. Identify the author's unique epistemological approach, their way of moving between abstract and concrete, and their persuasion philosophy. Produce an analysis rich enough to function as a complete author fingerprint.`;
+
+    const userPromptMini = `Perform a precise, surface-level style reconstruction on the following text. Focus on observable patterns: sentence structure, vocabulary, rhythm, and reusable techniques. Return the JSON object with all 9 fields:\n\n---\n${rawSourceText.slice(0, 10000)}\n---`;
+
+    const userPromptDeep = `Perform a deep cognitive and intellectual reconstruction of the author behind this text. Focus on how they think, argue, and construct meaning. Use the FULL text provided. Return the JSON object with all 9 fields:\n\n---\n${rawSourceText.slice(0, 16000)}\n---`;
 
     const parseAnalysis = (raw: string) => {
       let text = raw.trim();
@@ -745,24 +757,45 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
       return JSON.parse(text);
     };
 
-    const applyAnalysis = async (analysisRaw: string) => {
-      const parsed = parseAnalysis(analysisRaw);
+    const mergeAnalyses = (a: Record<string, string>, b: Record<string, string>): Record<string, string> => {
+      const fields = ["conceptualTendencies", "stylePatterns", "structurePatterns", "rhythmObservations", "vocabularyTendencies", "argumentBehavior", "emotionalDynamics", "reusableParameters", "styleInstruction"] as const;
+      const merged: Record<string, string> = {};
+      for (const key of fields) {
+        const va = (a[key] || "").trim();
+        const vb = (b[key] || "").trim();
+        if (!va) { merged[key] = vb; continue; }
+        if (!vb) { merged[key] = va; continue; }
+        if (key === "styleInstruction") {
+          // Merge style instructions into one rich composite instruction
+          merged[key] = `${va} ${vb}`;
+        } else if (key === "reusableParameters") {
+          // Concatenate both lists of techniques
+          merged[key] = `${va}\n\n${vb}`;
+        } else {
+          // Combine both analyses, keeping non-overlapping insights
+          merged[key] = `${va}\n\n${vb}`;
+        }
+      }
+      return merged;
+    };
+
+    const applyMergedAnalysis = async (merged: Record<string, string>) => {
       const updated = await storage.updateAuthorRoleModel(id, {
         rawSourceText,
         analysisStatus: "analyzed",
-        conceptualTendencies: parsed.conceptualTendencies || "",
-        stylePatterns: parsed.stylePatterns || "",
-        structurePatterns: parsed.structurePatterns || "",
-        rhythmObservations: parsed.rhythmObservations || "",
-        vocabularyTendencies: parsed.vocabularyTendencies || "",
-        argumentBehavior: parsed.argumentBehavior || "",
-        emotionalDynamics: parsed.emotionalDynamics || "",
-        reusableParameters: parsed.reusableParameters || "",
-        styleInstruction: parsed.styleInstruction || "",
+        conceptualTendencies: merged.conceptualTendencies || "",
+        stylePatterns: merged.stylePatterns || "",
+        structurePatterns: merged.structurePatterns || "",
+        rhythmObservations: merged.rhythmObservations || "",
+        vocabularyTendencies: merged.vocabularyTendencies || "",
+        argumentBehavior: merged.argumentBehavior || "",
+        emotionalDynamics: merged.emotionalDynamics || "",
+        reusableParameters: merged.reusableParameters || "",
+        styleInstruction: merged.styleInstruction || "",
         analysisText: [
-          parsed.conceptualTendencies,
-          parsed.stylePatterns,
-          parsed.structurePatterns,
+          merged.conceptualTendencies,
+          merged.stylePatterns,
+          merged.structurePatterns,
         ].filter(Boolean).join(" | "),
       });
       return updated;
@@ -770,20 +803,41 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
 
     try {
       const ai = await getOpenAI(req);
-      const model = await getUserModel(req);
-      const completion = await ai.chat.completions.create({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 4000,
-        response_format: { type: "json_object" },
-      });
-      const raw = completion.choices[0]?.message?.content || "{}";
       const userId = getUserId(req);
-      if (completion.usage?.total_tokens) trackTokens(userId, completion.usage.total_tokens);
-      const updated = await applyAnalysis(raw);
+
+      // Run gpt-4o-mini (surface patterns) and gpt-4o (deep cognitive analysis) in parallel
+      const [miniCompletion, deepCompletion] = await Promise.all([
+        ai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPromptMini },
+            { role: "user", content: userPromptMini },
+          ],
+          max_tokens: 4000,
+          response_format: { type: "json_object" },
+        }),
+        ai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemPromptDeep },
+            { role: "user", content: userPromptDeep },
+          ],
+          max_tokens: 6000,
+          response_format: { type: "json_object" },
+        }),
+      ]);
+
+      const rawMini = miniCompletion.choices[0]?.message?.content || "{}";
+      const rawDeep = deepCompletion.choices[0]?.message?.content || "{}";
+
+      const totalTokens = (miniCompletion.usage?.total_tokens || 0) + (deepCompletion.usage?.total_tokens || 0);
+      if (totalTokens) trackTokens(userId, totalTokens);
+
+      const parsedMini = parseAnalysis(rawMini);
+      const parsedDeep = parseAnalysis(rawDeep);
+      const merged = mergeAnalyses(parsedMini, parsedDeep);
+
+      const updated = await applyMergedAnalysis(merged);
       return res.json({ model: updated });
     } catch (e: any) {
       const { code } = openAIErrorMessage(e);
@@ -793,7 +847,7 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
       }
     }
 
-    // Fallback: free Pollinations
+    // Fallback: free Pollinations (single model)
     try {
       const seed = Math.floor(Math.random() * 99999);
       const pollinationsRes = await fetch("https://text.pollinations.ai/", {
@@ -802,7 +856,7 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
         body: JSON.stringify({
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
+            { role: "user", content: `Perform a deep author style reconstruction on the following text. Return the JSON object with all 9 fields filled in full detail:\n\n---\n${rawSourceText.slice(0, 8000)}\n---` },
           ],
           model: "openai",
           seed,
@@ -816,7 +870,8 @@ Return ONLY a valid JSON object with exactly these 9 fields. Each field must be 
       if (text.startsWith("{") || text.startsWith("[")) {
         try { const p = JSON.parse(text); if (p?.choices) text = p.choices[0]?.message?.content || text; } catch {}
       }
-      const updated = await applyAnalysis(text);
+      const parsed = parseAnalysis(text);
+      const updated = await applyMergedAnalysis(parsed);
       return res.json({ model: updated });
     } catch (e: any) {
       return res.status(500).json({ error: "analysis_error", message: e?.message });

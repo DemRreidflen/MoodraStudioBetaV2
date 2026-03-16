@@ -1059,8 +1059,12 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, collections, al
           </div>
         )}
 
-        <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleImageInsert(f); e.target.value = ""; }} />
+        <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={async e => {
+            const files = Array.from(e.target.files || []);
+            for (const f of files) { await handleImageInsert(f); }
+            e.target.value = "";
+          }} />
         <input ref={fileInputRef} type="file" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFileAttach(f); e.target.value = ""; }} />
 
