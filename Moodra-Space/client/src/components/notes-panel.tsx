@@ -6,10 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
 import {
   FileText, Plus, Trash2, Edit, Lightbulb, MessageSquare, Hash, BookOpen, Star,
-  LayoutList, LayoutGrid, Paperclip, GripVertical, X, Check, Search, Zap,
+  LayoutList, LayoutGrid, GripVertical, X, Check, Search, Zap,
   ChevronRight, Inbox, Pin, PinOff, FolderOpen, Tag, Filter, Eye, Archive,
   Sparkles, Brain, Target, HelpCircle, Telescope, Feather, Users, Microscope,
-  ChevronDown, ChevronUp, StickyNote, Layers, RotateCcw, AlertTriangle, Download
+  ChevronDown, ChevronUp, StickyNote, Layers, RotateCcw, AlertTriangle
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -528,7 +528,7 @@ function NoteRow({ note, onEdit, onTrash, onPin }: {
   );
 }
 
-// ─── Note Dialog (with optional fields + collection dropdown + attachments) ──
+// ─── Note Dialog — mini workspace (Apple Notes–inspired) ──────────────────────
 function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, collections }: {
   open: boolean; onClose: () => void; bookId: number; note?: Note;
   prefillTitle?: string; prefillStatus?: string; collections: string[];
@@ -536,67 +536,78 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
   const { toast } = useToast();
   const { lang } = useLang();
   const s = NOTES_I18N[lang];
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
 
-  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [type, setType] = useState("");
-  const [tags, setTags] = useState("");
-  const [color, setColor] = useState("yellow");
   const [status, setStatus] = useState("");
-  const [collection, setCollection] = useState("");
-  const [importance, setImportance] = useState("");
-  const [isPinned, setIsPinned] = useState(false);
-  const [showTypeAll, setShowTypeAll] = useState(false);
-  const [showOptional, setShowOptional] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<{ name: string; type: string; size: number; content: string }[]>([]);
-  const [attachments, setAttachments] = useState<{ id: number; fileName: string; fileType: string; fileSize: number }[]>([]);
-  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [showMeta, setShowMeta] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+
+  const autoTitle = content.trim().split("\n")[0].replace(/^#+\s*/, "").trim().slice(0, 80) || "";
 
   useEffect(() => {
     if (open) {
-      setTitle(note?.title || prefillTitle || "");
-      setContent(note?.content || "");
-      setType(note?.type || "");
-      setTags(note?.tags || "");
-      setColor((note as any)?.color || "yellow");
-      setStatus((note as any)?.status || prefillStatus || "");
-      setCollection((note as any)?.collection || "");
-      setImportance((note as any)?.importance || "");
-      setIsPinned((note as any)?.isPinned === "true");
-      setPendingFiles([]);
-      setShowOptional(!!(note?.type || (note as any)?.status || (note as any)?.importance));
-      if (note?.id) {
-        setLoadingAttachments(true);
-        apiRequest("GET", `/api/notes/${note.id}/attachments`)
-          .then((data: any) => setAttachments(Array.isArray(data) ? data : []))
-          .catch(() => setAttachments([]))
-          .finally(() => setLoadingAttachments(false));
+      if (note) {
+        const noteContent = note.content || "";
+        const noteTitle = note.title || "";
+        const combined = noteContent.startsWith(noteTitle) ? noteContent : (noteTitle ? noteTitle + (noteContent ? "\n" + noteContent : "") : noteContent);
+        setContent(combined);
+        setType(note.type || "");
+        setTagInput(note.tags || "");
+        setStatus((note as any).status || "");
+        setShowMeta(!!(note.type || (note as any).status || note.tags));
       } else {
-        setAttachments([]);
+        setContent(prefillTitle || "");
+        setType("");
+        setTagInput("");
+        setStatus("");
+        setShowMeta(false);
       }
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          const len = editorRef.current.value.length;
+          editorRef.current.setSelectionRange(len, len);
+          autoResizeEditor();
+        }
+      }, 30);
     }
-  }, [open, note?.id, prefillTitle, prefillStatus]);
+  }, [open, note?.id]);
 
-  const autoResize = () => {
-    const el = textareaRef.current;
-    if (el) { el.style.height = "auto"; el.style.height = `${el.scrollHeight}px`; }
+  const autoResizeEditor = () => {
+    const el = editorRef.current;
+    if (el) { el.style.height = "auto"; el.style.height = `${Math.max(260, el.scrollHeight)}px`; }
+  };
+
+  const applyFormat = (prefix: string, suffix = "", linePrefix = "") => {
+    const el = editorRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = content.slice(start, end);
+    let replacement = "";
+    if (linePrefix) {
+      const lines = (selected || "line").split("\n").map(l => linePrefix + l);
+      replacement = lines.join("\n");
+    } else {
+      replacement = prefix + (selected || "text") + suffix;
+    }
+    const newContent = content.slice(0, start) + replacement + content.slice(end);
+    setContent(newContent);
+    setTimeout(() => {
+      el.focus();
+      const newPos = start + replacement.length;
+      el.setSelectionRange(newPos, newPos);
+      autoResizeEditor();
+    }, 0);
   };
 
   const mutation = useMutation({
     mutationFn: (data: any) => note
       ? apiRequest("PATCH", `/api/notes/${note.id}`, data)
       : apiRequest("POST", `/api/books/${bookId}/notes`, data),
-    onSuccess: async (savedNote: any) => {
-      const noteId = note?.id || savedNote?.id;
-      if (noteId && pendingFiles.length > 0) {
-        for (const f of pendingFiles) {
-          try {
-            await apiRequest("POST", `/api/notes/${noteId}/attachments`, { fileName: f.name, fileType: f.type, fileSize: f.size, fileContent: f.content });
-          } catch {}
-        }
-      }
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
       onClose();
       toast({ title: note ? s.updated : s.created });
@@ -604,157 +615,161 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
   });
 
   const handleSave = () => {
-    if (!title.trim()) return;
-    mutation.mutate({ title: title.trim(), content, type, tags, color, status, collection, importance, isPinned: isPinned ? "true" : "false" });
+    const lines = content.trim().split("\n");
+    const derivedTitle = lines[0].replace(/^#+\s*/, "").trim().slice(0, 80);
+    const bodyContent = content.trim();
+    if (!derivedTitle) { toast({ title: lang === "ru" ? "Напишите хотя бы одну строку" : "Write at least one line", variant: "destructive" }); return; }
+    const finalTags = tagInput.trim();
+    mutation.mutate({
+      title: derivedTitle,
+      content: bodyContent,
+      type: type || "",
+      tags: finalTags,
+      status: status || "",
+      color: "none",
+      collection: "",
+      importance: "",
+      isPinned: "false",
+    });
   };
 
-  const handleFileAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) { toast({ title: s.fileTooLarge, variant: "destructive" }); continue; }
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const raw = (ev.target?.result as string || "");
-        const base64 = raw.split(",")[1] || raw;
-        setPendingFiles(prev => [...prev, { name: file.name, type: file.type, size: file.size, content: base64 }]);
-      };
-      reader.readAsDataURL(file);
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  const activeType = type ? NOTE_TYPES.find(t => t.value === type) : null;
 
-  const removeAttachment = async (id: number) => {
-    try {
-      await apiRequest("DELETE", `/api/attachments/${id}`);
-      setAttachments(prev => prev.filter(a => a.id !== id));
-    } catch {}
-  };
-
-  const col = getColor(color);
-  const visibleTypes = showTypeAll ? NOTE_TYPES : NOTE_TYPES.slice(0, 6);
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.45)" }} onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)" }}
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] bg-card border border-border"
+        className="w-full max-w-[560px] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: "85vh", background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border/50 flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-6 rounded-full" style={{ background: col.clip }} />
-            <span className="font-bold text-sm">{note ? s.editTitle : s.newTitle}</span>
+        {/* ── Top bar ── */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 flex-shrink-0">
+          {/* Auto-title preview */}
+          <div className="flex-1 min-w-0">
+            {autoTitle ? (
+              <span className="text-[13px] font-semibold text-foreground truncate block leading-snug">{autoTitle}</span>
+            ) : (
+              <span className="text-[13px] text-muted-foreground/40 italic">{lang === "ru" ? "Новая заметка" : lang === "ua" ? "Нова нотатка" : lang === "de" ? "Neue Notiz" : "New note"}</span>
+            )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setIsPinned(!isPinned)}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors"
-              style={{ color: isPinned ? col.clip : "#94A3B8" }}
-              title={s.toastPinned}
-            >
-              <Pin className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+          <button
+            onClick={handleSave}
+            disabled={!autoTitle || mutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all disabled:opacity-40 flex-shrink-0 text-white"
+            style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)" }}
+          >
+            {mutation.isPending ? (
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
+            ) : <Check className="h-3 w-3" />}
+            {s.save}
+          </button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary transition-colors text-muted-foreground flex-shrink-0">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {/* Color row */}
-        <div className="px-5 pt-3 flex items-center gap-2 flex-shrink-0">
-          {NOTE_COLORS.map(c => (
+        {/* ── Type accent stripe ── */}
+        {activeType && (
+          <div style={{ height: 2, background: activeType.accent, opacity: 0.7, flexShrink: 0 }} />
+        )}
+
+        {/* ── Formatting toolbar ── */}
+        <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-border/25 flex-shrink-0">
+          {([
+            { label: "B",  title: "Bold",         action: () => applyFormat("**", "**") },
+            { label: "I",  title: "Italic",        action: () => applyFormat("_", "_") },
+            { label: "H1", title: "Heading 1",     action: () => applyFormat("# ", "", "") },
+            { label: "H2", title: "Heading 2",     action: () => applyFormat("## ", "", "") },
+            { label: "• ", title: "Bullet list",   action: () => applyFormat("", "", "- ") },
+            { label: "1.", title: "Ordered list",  action: () => applyFormat("", "", "1. ") },
+            { label: "❝",  title: "Quote",         action: () => applyFormat("", "", "> ") },
+          ] as const).map(btn => (
             <button
-              key={c.value}
-              onClick={() => setColor(c.value)}
-              className="transition-transform hover:scale-110"
-              style={{
-                width: color === c.value ? 22 : 17, height: color === c.value ? 22 : 17,
-                borderRadius: "50%", background: c.bg,
-                border: `2px solid ${color === c.value ? c.clip : c.border}`,
-                outline: color === c.value ? `2px solid ${c.clip}40` : "none", outlineOffset: 1,
-              }}
-            />
+              key={btn.title}
+              title={btn.title}
+              onMouseDown={e => { e.preventDefault(); btn.action(); }}
+              className="px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors min-w-[26px] text-center"
+            >
+              {btn.label}
+            </button>
           ))}
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder={s.titlePlaceholder}
-            className="w-full rounded-xl px-3 py-2.5 outline-none text-sm font-semibold placeholder:font-normal placeholder:text-muted-foreground transition-all bg-secondary/60 border border-border focus:border-primary/50"
-            onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSave(); }}
-            autoFocus
-          />
-
+        {/* ── Main editor (writing area) ── */}
+        <div className="flex-1 overflow-y-auto">
           <textarea
-            ref={textareaRef}
+            ref={editorRef}
             value={content}
-            onChange={e => { setContent(e.target.value); autoResize(); }}
-            onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSave(); } }}
-            rows={4}
-            placeholder={s.contentPlaceholder}
-            className="w-full rounded-xl px-3 py-2.5 outline-none text-sm resize-none placeholder:text-muted-foreground leading-relaxed transition-all bg-secondary/60 border border-border focus:border-primary/50"
-            style={{ minHeight: "100px", maxHeight: "240px", overflow: "auto" }}
-            onFocus={() => autoResize()}
+            onChange={e => { setContent(e.target.value); autoResizeEditor(); }}
+            onKeyDown={e => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSave(); }
+              if (e.key === "Escape") onClose();
+            }}
+            placeholder={lang === "ru" ? "Начни писать мысль…" : lang === "ua" ? "Почни писати думку…" : lang === "de" ? "Schreib deine Gedanken…" : "Start writing your thought…"}
+            className="w-full bg-transparent outline-none text-sm leading-[1.9] resize-none px-5 pt-4 pb-3 placeholder:text-muted-foreground/30"
+            style={{ minHeight: "260px", fontFamily: "inherit" }}
           />
+        </div>
 
-          {/* Tags */}
-          <div className="relative">
-            <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-            <input
-              value={tags}
-              onChange={e => setTags(e.target.value)}
-              placeholder={s.tagsPlaceholder}
-              className="w-full rounded-xl pl-7 pr-3 py-2.5 outline-none text-xs placeholder:text-muted-foreground bg-secondary/60 border border-border focus:border-primary/50 transition-all"
-            />
-          </div>
-
-          {/* Collection — dropdown */}
-          <div className="relative">
-            <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-            <select
-              value={collection}
-              onChange={e => setCollection(e.target.value)}
-              className="w-full rounded-xl pl-7 pr-3 py-2.5 outline-none text-xs bg-secondary/60 border border-border focus:border-primary/50 transition-all appearance-none cursor-pointer text-foreground"
-            >
-              <option value="">{s.collectionDropdown}</option>
-              {collections.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          {/* Optional fields toggle */}
+        {/* ── Bottom metadata panel ── */}
+        <div className="border-t border-border/30 flex-shrink-0">
           <button
-            onClick={() => setShowOptional(!showOptional)}
-            className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+            onClick={() => setShowMeta(v => !v)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
-            {showOptional ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            {s.optional}
-            {(type || status || importance) && <span className="ml-1 text-[9px] px-1 py-0 rounded-full bg-primary/10 text-primary">●</span>}
+            <Tag className="h-3 w-3" />
+            <span className="flex-1 text-left">
+              {(type || status || tagInput) ? (
+                <span className="flex items-center gap-2 flex-wrap">
+                  {type && activeType && (
+                    <span className="flex items-center gap-1 font-medium" style={{ color: activeType.accent }}>
+                      <activeType.icon className="h-2.5 w-2.5" />
+                      {s.types[type as keyof typeof s.types]}
+                    </span>
+                  )}
+                  {status && (
+                    <span className="flex items-center gap-1" style={{ color: NOTE_STATUSES.find(st => st.value === status)?.color || "#94A3B8" }}>
+                      ● {s.statuses[status as keyof typeof s.statuses]}
+                    </span>
+                  )}
+                  {tagInput && <span className="text-muted-foreground/60">#{tagInput.split(",")[0]?.trim()}{tagInput.split(",").length > 1 ? " …" : ""}</span>}
+                </span>
+              ) : (
+                lang === "ru" ? "Добавить тип, статус, теги…" :
+                lang === "ua" ? "Додати тип, статус, теги…" :
+                lang === "de" ? "Typ, Status, Tags hinzufügen…" :
+                "Add type, status, tags…"
+              )}
+            </span>
+            {showMeta ? <ChevronUp className="h-3 w-3 flex-shrink-0" /> : <ChevronDown className="h-3 w-3 flex-shrink-0" />}
           </button>
 
-          {showOptional && (
-            <div className="space-y-3 pl-2 border-l-2 border-border/40">
+          {showMeta && (
+            <div className="px-4 pb-4 space-y-3 border-t border-border/20 pt-3">
               {/* Type */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-muted-foreground">{s.typeLabel}</p>
-                <div className="flex flex-wrap gap-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground/60">{s.typeLabel}</p>
+                <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => setType("")}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                    className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
                     style={{
-                      background: type === "" ? "hsl(var(--primary)/0.1)" : "hsl(var(--secondary))",
-                      color: type === "" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                      border: `1px solid ${type === "" ? "hsl(var(--primary)/0.3)" : "transparent"}`,
+                      background: type === "" ? "rgba(249,109,28,0.1)" : "hsl(var(--secondary))",
+                      color: type === "" ? "#F96D1C" : "hsl(var(--muted-foreground))",
+                      border: `1px solid ${type === "" ? "rgba(249,109,28,0.3)" : "transparent"}`,
                     }}
                   >—</button>
-                  {visibleTypes.map(t => (
+                  {NOTE_TYPES.map(t => (
                     <button
                       key={t.value}
-                      onClick={() => setType(t.value)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                      onClick={() => setType(type === t.value ? "" : t.value)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
                       style={{
                         background: type === t.value ? `${t.accent}15` : "hsl(var(--secondary))",
                         color: type === t.value ? t.accent : "hsl(var(--muted-foreground))",
@@ -765,140 +780,58 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
                       {s.types[t.value as keyof typeof s.types]}
                     </button>
                   ))}
-                  <button
-                    onClick={() => setShowTypeAll(!showTypeAll)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-muted-foreground hover:bg-secondary transition-colors"
-                  >
-                    {showTypeAll ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
-                  </button>
                 </div>
               </div>
 
               {/* Status */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-muted-foreground">{s.statusLabel}</p>
-                <div className="flex flex-wrap gap-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground/60">{s.statusLabel}</p>
+                <div className="flex flex-wrap gap-1.5">
                   <button
                     onClick={() => setStatus("")}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                    className="px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
                     style={{
-                      background: status === "" ? "hsl(var(--primary)/0.1)" : "hsl(var(--secondary))",
-                      color: status === "" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                      border: `1px solid ${status === "" ? "hsl(var(--primary)/0.3)" : "transparent"}`,
+                      background: status === "" ? "rgba(249,109,28,0.1)" : "hsl(var(--secondary))",
+                      color: status === "" ? "#F96D1C" : "hsl(var(--muted-foreground))",
+                      border: `1px solid ${status === "" ? "rgba(249,109,28,0.3)" : "transparent"}`,
                     }}
                   >—</button>
                   {NOTE_STATUSES.map(st => (
                     <button
                       key={st.value}
-                      onClick={() => setStatus(st.value)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                      onClick={() => setStatus(status === st.value ? "" : st.value)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all"
                       style={{
                         background: status === st.value ? `${st.color}15` : "hsl(var(--secondary))",
                         color: status === st.value ? st.color : "hsl(var(--muted-foreground))",
                         border: `1px solid ${status === st.value ? `${st.color}40` : "transparent"}`,
                       }}
                     >
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: status === st.value ? st.color : "hsl(var(--muted-foreground))" }} />
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: status === st.value ? st.color : "hsl(var(--muted-foreground))" }} />
                       {s.statuses[st.value as keyof typeof s.statuses]}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Importance */}
+              {/* Hashtags */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 text-muted-foreground">{s.importanceLabel}</p>
-                <div className="flex flex-wrap gap-1">
-                  <button
-                    onClick={() => setImportance("")}
-                    className="px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
-                    style={{
-                      background: importance === "" ? "hsl(var(--primary)/0.1)" : "hsl(var(--secondary))",
-                      color: importance === "" ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-                      border: `1px solid ${importance === "" ? "hsl(var(--primary)/0.3)" : "transparent"}`,
-                    }}
-                  >—</button>
-                  {(["normal", "high", "core"] as const).map(imp => {
-                    const colors = { normal: "#94A3B8", high: "#F59E0B", core: "#EF4444" };
-                    return (
-                      <button
-                        key={imp}
-                        onClick={() => setImportance(imp)}
-                        className="px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
-                        style={{
-                          background: importance === imp ? `${colors[imp]}15` : "hsl(var(--secondary))",
-                          color: importance === imp ? colors[imp] : "hsl(var(--muted-foreground))",
-                          border: `1px solid ${importance === imp ? `${colors[imp]}40` : "transparent"}`,
-                        }}
-                      >
-                        {s.importance[imp]}
-                      </button>
-                    );
-                  })}
+                <p className="text-[10px] font-semibold uppercase tracking-wider mb-2 text-muted-foreground/60">
+                  {lang === "ru" ? "Хэштеги" : lang === "ua" ? "Хештеги" : lang === "de" ? "Hashtags" : "Hashtags"}
+                </p>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/40 border border-border/40">
+                  <Hash className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
+                  <input
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    placeholder={s.tagsPlaceholder}
+                    className="flex-1 bg-transparent outline-none text-xs placeholder:text-muted-foreground/35"
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } }}
+                  />
                 </div>
               </div>
             </div>
           )}
-
-          {/* Attachments */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Paperclip className="h-2.5 w-2.5" />
-                {s.attachments}
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-0.5"
-              >
-                <Plus className="h-2.5 w-2.5" />
-                {s.addFile}
-              </button>
-            </div>
-            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileAdd} />
-            {/* Existing attachments */}
-            {!loadingAttachments && attachments.map(att => (
-              <div key={att.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-secondary/50 mb-1">
-                <Paperclip className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                <span className="flex-1 text-xs truncate">{att.fileName}</span>
-                <a href={`/api/attachments/${att.id}/download`} onClick={e => e.stopPropagation()} className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0" title="Download">
-                  <Download className="h-3 w-3" />
-                </a>
-                <button onClick={() => removeAttachment(att.id)} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            {/* Pending (unsaved) files */}
-            {pendingFiles.map((f, i) => (
-              <div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-primary/5 border border-primary/20 mb-1">
-                <Paperclip className="h-3 w-3 text-primary flex-shrink-0" />
-                <span className="flex-1 text-xs truncate text-primary">{f.name}</span>
-                <span className="text-[9px] text-muted-foreground flex-shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
-                <button onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex gap-2 px-5 pb-5 pt-3 border-t border-border/50 flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-border/60 text-muted-foreground hover:bg-secondary transition-colors"
-          >
-            {s.cancel}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!title.trim() || mutation.isPending}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 text-white"
-            style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)" }}
-          >
-            {mutation.isPending ? s.saving : <><Check className="h-3.5 w-3.5" /> {s.save}</>}
-          </button>
         </div>
       </div>
     </div>
