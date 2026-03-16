@@ -68,6 +68,8 @@ const NOTES_I18N = {
     trashed: "Moved to Trash", restore: "Restore", restored: "Restored",
     deleteForever: "Delete forever", deletedForever: "Permanently deleted",
     attachments: "Attachments", fileTooLarge: "File is too large (max 10 MB)",
+    oneImageTitle: "One image per note",
+    oneImageDesc: "A note is a small world for one idea. More than one image clutters it — that's why only one can be added.",
     linkNotes: "Linked notes", searchNotes: "Search notes to link…",
     linkUrl: "URL", linkText: "Link text (optional)", insertLink: "Insert link",
     colorNone: "No color", chains: "Chains", newChain: "New chain",
@@ -97,6 +99,8 @@ const NOTES_I18N = {
     trashed: "Перемещено в корзину", restore: "Восстановить", restored: "Восстановлено",
     deleteForever: "Удалить навсегда", deletedForever: "Удалено навсегда",
     attachments: "Вложения", fileTooLarge: "Файл слишком большой (макс 10 МБ)",
+    oneImageTitle: "Одно изображение на заметку",
+    oneImageDesc: "Заметка — это маленький мир для одной идеи. Больше одного изображения будет сбивать. Поэтому можно добавить только одно.",
     linkNotes: "Связанные заметки", searchNotes: "Поиск заметок для связи…",
     linkUrl: "Ссылка (URL)", linkText: "Текст ссылки (необязательно)", insertLink: "Вставить ссылку",
     colorNone: "Без цвета", chains: "Цепочки", newChain: "Новая цепочка",
@@ -126,6 +130,8 @@ const NOTES_I18N = {
     trashed: "Переміщено до кошика", restore: "Відновити", restored: "Відновлено",
     deleteForever: "Видалити назавжди", deletedForever: "Видалено назавжди",
     attachments: "Вкладення", fileTooLarge: "Файл завеликий (макс 10 МБ)",
+    oneImageTitle: "Одне зображення на нотатку",
+    oneImageDesc: "Нотатка — це маленький світ для однієї ідеї. Більше одного зображення буде збивати. Тому можна додати лише одне.",
     linkNotes: "Пов'язані нотатки", searchNotes: "Пошук нотаток для зв'язку…",
     linkUrl: "Посилання (URL)", linkText: "Текст посилання (необов'язково)", insertLink: "Вставити посилання",
     colorNone: "Без кольору", chains: "Ланцюжки", newChain: "Новий ланцюжок",
@@ -155,6 +161,8 @@ const NOTES_I18N = {
     trashed: "In Papierkorb verschoben", restore: "Wiederherstellen", restored: "Wiederhergestellt",
     deleteForever: "Endgültig löschen", deletedForever: "Endgültig gelöscht",
     attachments: "Anhänge", fileTooLarge: "Datei zu groß (max 10 MB)",
+    oneImageTitle: "Ein Bild pro Notiz",
+    oneImageDesc: "Eine Notiz ist eine kleine Welt für eine Idee. Mehr als ein Bild lenkt ab — deshalb kann nur eines hinzugefügt werden.",
     linkNotes: "Verknüpfte Notizen", searchNotes: "Notizen zum Verknüpfen suchen…",
     linkUrl: "URL", linkText: "Linktext (optional)", insertLink: "Link einfügen",
     colorNone: "Keine Farbe", chains: "Ketten", newChain: "Neue Kette",
@@ -814,6 +822,10 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, collections, al
   }, []);
 
   const handleImageInsert = async (file: File) => {
+    if (editorRef.current && editorRef.current.querySelectorAll("img").length > 0) {
+      toast({ title: s.oneImageTitle, description: s.oneImageDesc, variant: "destructive" });
+      return;
+    }
     if (file.size > 10 * 1024 * 1024) { toast({ title: s.fileTooLarge, variant: "destructive" }); return; }
     const dataUrl = await compressImage(file);
     if (!dataUrl) return;
@@ -1059,10 +1071,10 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, collections, al
           </div>
         )}
 
-        <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden"
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
           onChange={async e => {
-            const files = Array.from(e.target.files || []);
-            for (const f of files) { await handleImageInsert(f); }
+            const f = e.target.files?.[0];
+            if (f) await handleImageInsert(f);
             e.target.value = "";
           }} />
         <input ref={fileInputRef} type="file" className="hidden"
