@@ -12,7 +12,7 @@ import {
   ChevronDown, ChevronUp, StickyNote, Layers, RotateCcw, AlertTriangle,
   Bold, Italic, Underline, Strikethrough, List, ListOrdered, ListChecks,
   Heading1, Heading2, Heading3, Quote, Indent, Outdent, Table, Link2,
-  Highlighter, Type
+  Highlighter, Type, ImagePlus, Paperclip, Download
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -395,9 +395,13 @@ function NoteCard({ note, onEdit, onTrash, onPin }: {
       {/* Title */}
       <h4 className="font-semibold text-[12px] leading-snug line-clamp-2 flex-shrink-0" style={{ color: col.text }}>{note.title}</h4>
 
-      {/* Content preview */}
+      {/* Content preview — rich HTML render */}
       {note.content && (
-        <p className="text-[11px] leading-[1.65] line-clamp-4 flex-1 mt-1.5 min-h-0" style={{ color: `${col.text}85` }}>{stripHtml(note.content)}</p>
+        <div
+          className="nte-preview flex-1 mt-1.5 min-h-0 overflow-hidden"
+          style={{ color: `${col.text}85`, maxHeight: "72px" }}
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
       )}
 
       {/* Bottom pills: status + importance + tag (only when set) */}
@@ -565,6 +569,8 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
   const { lang } = useLang();
   const s = NOTES_I18N[lang];
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [autoTitle, setAutoTitle] = useState("");
   const [type, setType] = useState("");
@@ -572,6 +578,7 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
   const [showMeta, setShowMeta] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [showHL, setShowHL] = useState(false);
+  const [attachUploading, setAttachUploading] = useState(false);
 
   const updateTitle = useCallback(() => {
     const div = editorRef.current;
@@ -654,6 +661,72 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
     editorRef.current?.focus();
     setShowHL(false);
   };
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    const escaped = text
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html = escaped.split("\n").map(l => `<p>${l || "<br>"}</p>`).join("");
+    document.execCommand("insertHTML", false, html);
+    updateTitle();
+  }, [updateTitle]);
+
+  const handleImageInsert = (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: lang === "ru" ? "Файл слишком большой (макс. 5 МБ)" : "File too large (max 5 MB)", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      restoreEditorFocus();
+      document.execCommand("insertHTML", false,
+        `<img src="${dataUrl}" style="max-width:100%;border-radius:8px;margin:6px 0;display:block" /><p><br></p>`
+      );
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const restoreEditorFocus = () => {
+    editorRef.current?.focus();
+  };
+
+  const handleFileAttach = async (file: File) => {
+    if (!note?.id) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: lang === "ru" ? "Файл слишком большой (макс. 5 МБ)" : "File too large (max 5 MB)", variant: "destructive" });
+      return;
+    }
+    setAttachUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const base64 = (ev.target?.result as string).split(",")[1];
+        await apiRequest("POST", `/api/notes/${note.id}/attachments`, {
+          fileName: file.name, fileType: file.type, fileSize: file.size, fileContent: base64,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/notes", note.id, "attachments"] });
+        setAttachUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast({ title: lang === "ru" ? "Ошибка загрузки" : "Upload failed", variant: "destructive" });
+      setAttachUploading(false);
+    }
+  };
+
+  const { data: attachments = [] } = useQuery<any[]>({
+    queryKey: ["/api/notes", note?.id, "attachments"],
+    queryFn: () => apiRequest("GET", `/api/notes/${note!.id}/attachments`),
+    enabled: !!note?.id && open,
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("DELETE", `/api/attachments/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notes", note?.id, "attachments"] }),
+  });
 
   const mutation = useMutation({
     mutationFn: (data: any) => note
@@ -778,7 +851,12 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
           {/* Insert */}
           <TBtn onAction={insertTable} title="Insert table"><Table className="h-3.5 w-3.5" /></TBtn>
           <TBtn onAction={insertLink} title="Insert link"><Link2 className="h-3.5 w-3.5" /></TBtn>
+          <TBtn onAction={() => imageInputRef.current?.click()} title="Insert image"><ImagePlus className="h-3.5 w-3.5" /></TBtn>
         </div>
+
+        {/* Hidden file inputs */}
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageInsert(f); e.target.value = ""; }} />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFileAttach(f); e.target.value = ""; }} />
 
         {/* ── Editor styles ── */}
         <style>{`
@@ -806,12 +884,74 @@ function NoteDialog({ open, onClose, bookId, note, prefillTitle, prefillStatus, 
             className="nte-editor w-full px-5 pt-4 pb-5 text-sm leading-[1.85]"
             data-placeholder={lang === "ru" ? "Начни писать мысль…" : lang === "ua" ? "Почни писати думку…" : lang === "de" ? "Schreib deine Gedanken…" : "Start writing your thought…"}
             onInput={updateTitle}
+            onPaste={handlePaste}
             onKeyDown={e => {
               if (e.key === "Escape") onClose();
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSave(); }
             }}
           />
         </div>
+
+        {/* ── Attachments section ── */}
+        {(note?.id || attachments.length > 0) && (
+          <div className="border-t border-border/25 flex-shrink-0 px-4 py-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50 flex items-center gap-1.5">
+                <Paperclip className="h-2.5 w-2.5" />
+                {lang === "ru" ? "Вложения" : lang === "ua" ? "Вкладення" : lang === "de" ? "Anhänge" : "Attachments"}
+                {attachments.length > 0 && <span className="text-muted-foreground/40">({attachments.length})</span>}
+              </span>
+              {note?.id && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={attachUploading}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors hover:bg-secondary text-muted-foreground hover:text-foreground"
+                >
+                  {attachUploading
+                    ? <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                    : <Paperclip className="h-3 w-3" />}
+                  {lang === "ru" ? "Прикрепить" : lang === "ua" ? "Прикріпити" : lang === "de" ? "Anhängen" : "Attach"}
+                </button>
+              )}
+            </div>
+            {attachments.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {attachments.map((att: any) => {
+                  const isImg = att.fileType?.startsWith("image/");
+                  const sizeMb = att.fileSize ? (att.fileSize / (1024 * 1024)).toFixed(1) : null;
+                  return (
+                    <div key={att.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-secondary/40 group hover:bg-secondary/70 transition-colors">
+                      <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 bg-secondary text-muted-foreground">
+                        {isImg ? <ImagePlus className="h-3 w-3" /> : <Paperclip className="h-3 w-3" />}
+                      </div>
+                      <span className="flex-1 text-[11px] truncate text-foreground">{att.fileName}</span>
+                      {sizeMb && <span className="text-[9px] text-muted-foreground/50 flex-shrink-0">{sizeMb} MB</span>}
+                      <a
+                        href={`/api/attachments/${att.id}/download`}
+                        download={att.fileName}
+                        className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Download className="h-3 w-3" />
+                      </a>
+                      <button
+                        onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                        className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {!note?.id && (
+              <p className="text-[10px] text-muted-foreground/40 italic">
+                {lang === "ru" ? "Сохраните заметку, чтобы прикрепить файлы" : "Save the note first to attach files"}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── Bottom metadata panel ── */}
         <div className="border-t border-border/30 flex-shrink-0">
@@ -915,8 +1055,6 @@ export function NotesPanel({ bookId, aiPanelOpen }: { bookId: number; aiPanelOpe
   const [viewMode, setViewMode] = useState<"list" | "cards">("cards");
   const [localOrder, setLocalOrder] = useState<number[] | null>(null);
   const [search, setSearch] = useState("");
-  const [quickCapture, setQuickCapture] = useState("");
-  const [quickCaptureType, setQuickCaptureType] = useState(0);
   const [sidebarView, setSidebarView] = useState<string>("all");
   const [filterType, setFilterType] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
@@ -929,7 +1067,6 @@ export function NotesPanel({ bookId, aiPanelOpen }: { bookId: number; aiPanelOpe
   const [sidebarWidth, setSidebarWidth] = useState(160);
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingSidebar = useRef(false);
-  const quickCaptureRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -986,15 +1123,6 @@ export function NotesPanel({ bookId, aiPanelOpen }: { bookId: number; aiPanelOpe
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
       toast({ title: vars.isPinned === "true" ? s.toastPinned : s.toastUnpinned });
-    },
-  });
-
-  const quickCaptureMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", `/api/books/${bookId}/notes`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
-      setQuickCapture("");
-      quickCaptureRef.current?.focus();
     },
   });
 
@@ -1063,19 +1191,6 @@ export function NotesPanel({ bookId, aiPanelOpen }: { bookId: number; aiPanelOpe
     const ids = orderedNotes.map(n => n.id);
     setLocalOrder(arrayMove(ids, ids.indexOf(active.id as number), ids.indexOf(over.id as number)));
   }, [orderedNotes]);
-
-  const currentQcType = NOTE_TYPES[quickCaptureType % NOTE_TYPES.length];
-  const QcIcon = currentQcType.icon;
-
-  const handleQuickCapture = () => {
-    const t = quickCapture.trim();
-    if (!t) return;
-    quickCaptureMutation.mutate({
-      title: t, content: "", type: "",
-      tags: "", color: "yellow", status: "inbox",
-      collection: sidebarView !== "all" && sidebarView !== "inbox" && sidebarView !== "pinned" && sidebarView !== "trash" ? sidebarView : "",
-    });
-  };
 
   const isTrashView = sidebarView === "trash";
   const isEmptyView = filtered.length === 0 && notes.length === 0;
@@ -1329,59 +1444,6 @@ export function NotesPanel({ bookId, aiPanelOpen }: { bookId: number; aiPanelOpe
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Quick capture */}
-              <div className="px-3 pb-2">
-                <div className="flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 transition-all" style={{ borderColor: "#F96D1C22", background: "#FFF7F0" }}>
-                  <button
-                    onClick={() => setQuickCaptureType(prev => prev + 1)}
-                    className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center hover:scale-110 transition-transform"
-                    style={{ background: `${currentQcType.accent}18`, color: currentQcType.accent }}
-                  >
-                    <QcIcon className="h-2.5 w-2.5" />
-                  </button>
-                  <input
-                    ref={quickCaptureRef}
-                    value={quickCapture}
-                    onChange={e => setQuickCapture(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter" && quickCapture.trim()) handleQuickCapture();
-                      else if (e.key === "Tab" && quickCapture.trim()) {
-                        e.preventDefault();
-                        setDialogPrefill(quickCapture);
-                        setDialogPrefillStatus("inbox");
-                        setQuickCapture("");
-                        setEditNote(undefined);
-                        setShowDialog(true);
-                      }
-                      else if (e.key === "Escape") setQuickCapture("");
-                    }}
-                    placeholder={s.quickCapturePlaceholder}
-                    className="flex-1 bg-transparent outline-none text-xs placeholder:text-orange-300/70 text-orange-900"
-                  />
-                  {quickCapture.trim() ? (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => { setDialogPrefill(quickCapture); setDialogPrefillStatus("inbox"); setQuickCapture(""); setEditNote(undefined); setShowDialog(true); }}
-                        className="w-5 h-5 flex items-center justify-center rounded text-orange-400 hover:bg-orange-100 transition-colors"
-                        title={s.quickCaptureExpand}
-                      >
-                        <ChevronRight className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={handleQuickCapture}
-                        disabled={quickCaptureMutation.isPending}
-                        className="w-5 h-5 flex items-center justify-center rounded text-white transition-colors"
-                        style={{ background: "#F96D1C" }}
-                      >
-                        <Zap className="h-2.5 w-2.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-orange-300/50 flex-shrink-0">↵</span>
-                  )}
-                </div>
               </div>
 
               {/* Notes list/grid */}
