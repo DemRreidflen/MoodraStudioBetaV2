@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import {
   FileText, Database, Hash
 } from "lucide-react";
 import { NotesGraph } from "@/components/notes-graph";
+import { SelectionToolbar } from "@/components/selection-toolbar";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
