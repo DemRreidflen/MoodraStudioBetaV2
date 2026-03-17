@@ -2794,5 +2794,42 @@ window.addEventListener('load', function() {
     res.send(html);
   });
 
+  app.post("/api/text-check", async (req, res) => {
+    try {
+      const { text, language } = req.body as { text: string; language: string };
+      if (!text || !language) {
+        return res.status(400).json({ matches: [], error: "Missing text or language" });
+      }
+      if (text.length > 8000) {
+        return res.status(400).json({ matches: [], error: "Text too long (max 8000 chars)" });
+      }
+      const params = new URLSearchParams({
+        text,
+        language,
+        enabledOnly: "false",
+      });
+      const ltRes = await fetch("https://api.languagetool.org/v2/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "User-Agent": "Moodra-SpellCheck/1.0",
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!ltRes.ok) {
+        return res.status(502).json({ matches: [], error: "LanguageTool API error" });
+      }
+      const data = (await ltRes.json()) as { matches?: unknown[] };
+      return res.json({ matches: data.matches || [] });
+    } catch (e: any) {
+      if (e?.name === "TimeoutError") {
+        return res.status(504).json({ matches: [], error: "LanguageTool API timeout" });
+      }
+      return res.status(500).json({ matches: [], error: "Internal error" });
+    }
+  });
+
   return httpServer;
 }

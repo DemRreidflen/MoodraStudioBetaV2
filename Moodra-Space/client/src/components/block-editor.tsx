@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, forwardRef, type ReactNode } from "react";
+import { useSpellCheck } from "@/hooks/use-spell-check";
+import { LANG_LABELS, LANG_FULL_LABELS, LANG_BROWSER_ATTR, type SpellCheckMode, type SpellCheckLang } from "@/lib/spell-check-service";
 import {
   DndContext,
   closestCenter,
@@ -69,6 +71,10 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     aiImprovement: "AI Text Improvement", comparisonDesc: "Comparison of original and improved text",
     original: "Original", improved: "Improved", reject: "Reject", accept: "Accept",
     processing: "Processing...", firstLineIndent: "First line indent",
+    spellOff: "Off", spellBasic: "Basic", spellSmart: "Smart",
+    spellCheck: "Spell Check", spellLang: "Language", spellErrors: "Errors",
+    spellNoErrors: "No errors found", spellApply: "Apply", spellIgnore: "Ignore",
+    spellChecking: "Checking...", spellMode: "Check mode",
   },
   ru: {
     improve: "Улучшить", expand: "Расширить", shorten: "Сократить", rephrase: "Переформулировать", example: "+ Пример", strengthen: "Усилить",
@@ -96,6 +102,10 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     aiImprovement: "AI-улучшение текста", comparisonDesc: "Сравнение оригинального и улучшенного текста",
     original: "Оригинал", improved: "Улучшено", reject: "Отклонить", accept: "Принять",
     processing: "Обрабатываю...", firstLineIndent: "Красная строка",
+    spellOff: "Выкл", spellBasic: "Базовый", spellSmart: "Умный",
+    spellCheck: "Правописание", spellLang: "Язык", spellErrors: "Ошибки",
+    spellNoErrors: "Ошибок не найдено", spellApply: "Применить", spellIgnore: "Пропустить",
+    spellChecking: "Проверяю...", spellMode: "Режим проверки",
   },
   ua: {
     improve: "Поліпшити", expand: "Розширити", shorten: "Скоротити", rephrase: "Перефразувати", example: "+ Приклад", strengthen: "Посилити",
@@ -123,6 +133,10 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     aiImprovement: "AI-поліпшення тексту", comparisonDesc: "Порівняння оригінального та поліпшеного тексту",
     original: "Оригінал", improved: "Поліпшено", reject: "Відхилити", accept: "Прийняти",
     processing: "Обробляю...", firstLineIndent: "Червоний рядок",
+    spellOff: "Вимкн", spellBasic: "Базовий", spellSmart: "Розумний",
+    spellCheck: "Правопис", spellLang: "Мова", spellErrors: "Помилки",
+    spellNoErrors: "Помилок не знайдено", spellApply: "Застосувати", spellIgnore: "Пропустити",
+    spellChecking: "Перевіряю...", spellMode: "Режим перевірки",
   },
   de: {
     improve: "Verbessern", expand: "Erweitern", shorten: "Kürzen", rephrase: "Umformulieren", example: "+ Beispiel", strengthen: "Verstärken",
@@ -150,6 +164,10 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     aiImprovement: "KI-Textverbesserung", comparisonDesc: "Vergleich von Original- und verbessertem Text",
     original: "Original", improved: "Verbessert", reject: "Ablehnen", accept: "Annehmen",
     processing: "Verarbeite...", firstLineIndent: "Erstzeileneinzug",
+    spellOff: "Aus", spellBasic: "Basis", spellSmart: "Smart",
+    spellCheck: "Rechtschreibung", spellLang: "Sprache", spellErrors: "Fehler",
+    spellNoErrors: "Keine Fehler gefunden", spellApply: "Anwenden", spellIgnore: "Ignorieren",
+    spellChecking: "Prüfe...", spellMode: "Prüfmodus",
   },
 };
 
@@ -237,10 +255,22 @@ function FormatToolbar({
   visible,
   lineSpacing,
   onLineSpacingChange,
+  spellMode,
+  spellLang,
+  onSpellModeChange,
+  onSpellLangChange,
+  spellMatchCount,
+  spellIsChecking,
 }: {
   visible: boolean;
   lineSpacing: string;
   onLineSpacingChange: (v: string) => void;
+  spellMode?: SpellCheckMode;
+  spellLang?: SpellCheckLang;
+  onSpellModeChange?: (m: SpellCheckMode) => void;
+  onSpellLangChange?: (l: SpellCheckLang) => void;
+  spellMatchCount?: number;
+  spellIsChecking?: boolean;
 }) {
   const { lang } = useLang();
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
@@ -505,7 +535,135 @@ function FormatToolbar({
         </div>
 
         {fmtBtn(false, s.clearFormat, () => cmd("removeFormat"), <RemoveFormatting className="h-3.5 w-3.5" />)}
+
+        {onSpellModeChange && (
+          <>
+            <Sep />
+            <SpellCheckWidget
+              mode={spellMode ?? "basic"}
+              lang={spellLang ?? "auto"}
+              onModeChange={onSpellModeChange}
+              onLangChange={onSpellLangChange!}
+              matchCount={spellMatchCount ?? 0}
+              isChecking={spellIsChecking ?? false}
+              s={s}
+            />
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+const SPELL_LANGS: SpellCheckLang[] = ["auto", "en-US", "ru-RU", "uk-UA", "de-DE"];
+const SPELL_MODES: SpellCheckMode[] = ["off", "basic", "smart"];
+
+function SpellCheckWidget({
+  mode, lang, onModeChange, onLangChange, matchCount, isChecking, s,
+}: {
+  mode: SpellCheckMode;
+  lang: SpellCheckLang;
+  onModeChange: (m: SpellCheckMode) => void;
+  onLangChange: (l: SpellCheckLang) => void;
+  matchCount: number;
+  isChecking: boolean;
+  s: Record<string, string>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const modeLabel: Record<SpellCheckMode, string> = {
+    off: s.spellOff, basic: s.spellBasic, smart: s.spellSmart,
+  };
+
+  const modeColor: Record<SpellCheckMode, string> = {
+    off: "#9ca3af",
+    basic: "#6366f1",
+    smart: mode === "smart" && matchCount > 0 ? "#ef4444" : "#10b981",
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        title={s.spellCheck}
+        onMouseDown={(e) => { e.preventDefault(); setOpen(v => !v); }}
+        className={cn(
+          "flex items-center gap-1 h-7 px-2 rounded-lg text-[11px] font-semibold transition-colors",
+          open ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+        )}
+      >
+        <span style={{ fontFamily: "monospace", fontSize: "13px", lineHeight: 1 }}>ABC</span>
+        <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: modeColor[mode] }}>
+          {modeLabel[mode]}
+        </span>
+        {mode === "smart" && isChecking && (
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+        )}
+        {mode === "smart" && !isChecking && matchCount > 0 && (
+          <span className="flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
+            style={{ background: "#ef4444", minWidth: "1rem" }}>
+            {matchCount > 9 ? "9+" : matchCount}
+          </span>
+        )}
+        {mode === "smart" && !isChecking && matchCount === 0 && (
+          <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-2 z-50 bg-background border border-border/60 rounded-2xl shadow-xl p-3 min-w-[220px]"
+          style={{ maxHeight: "340px", overflowY: "auto" }}>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">{s.spellMode}</div>
+          <div className="flex gap-1 mb-3">
+            {SPELL_MODES.map(m => (
+              <button key={m} onMouseDown={e => { e.preventDefault(); onModeChange(m); }}
+                className={cn("flex-1 py-1 rounded-lg text-[11px] font-semibold transition-colors",
+                  mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent/70"
+                )}>
+                {modeLabel[m]}
+              </button>
+            ))}
+          </div>
+
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2">{s.spellLang}</div>
+          <div className="flex gap-1 flex-wrap mb-3">
+            {SPELL_LANGS.map(l => (
+              <button key={l} onMouseDown={e => { e.preventDefault(); onLangChange(l); }}
+                className={cn("px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-colors",
+                  lang === l ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent/70"
+                )}
+                title={LANG_FULL_LABELS[l]}>
+                {LANG_LABELS[l]}
+              </button>
+            ))}
+          </div>
+
+          {mode === "smart" && (
+            <div className="border-t border-border/30 pt-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1.5">{s.spellErrors}</div>
+              {isChecking ? (
+                <div className="text-[11px] text-muted-foreground/60 italic">{s.spellChecking}</div>
+              ) : matchCount === 0 ? (
+                <div className="text-[11px] text-green-600 flex items-center gap-1">
+                  <span>✓</span> {s.spellNoErrors}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground">
+                  {matchCount} {s.spellErrors.toLowerCase()}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -623,6 +781,7 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   const { lang } = useLang();
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
   const [, setLocation] = useLocation();
+  const spellCheck = useSpellCheck();
 
   // Expose imperative API to parent via onMounted callback
   const onMountedRef = useRef(onMounted);
@@ -952,12 +1111,44 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
     }, 0);
   }, [blocks, hideControls, updateBlocks]);
 
+  // Auto spell-check focused block in SMART mode
+  useEffect(() => {
+    if (spellCheck.mode !== "smart" || !focusedBlockId) return;
+    const block = blocks.find(b => b.id === focusedBlockId);
+    if (block) spellCheck.check(block.content);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedBlockId, spellCheck.mode, spellCheck.lang]);
+
+  const applySpellFix = useCallback((match: import("@/lib/spell-check-service").LTMatch, replacement: string) => {
+    if (!focusedBlockId) return;
+    const block = blocks.find(b => b.id === focusedBlockId);
+    if (!block) return;
+    const errorText = match.context.text.slice(match.context.offset, match.context.offset + match.context.length);
+    const newContent = block.content.includes(errorText)
+      ? block.content.replace(errorText, replacement)
+      : block.content;
+    updateBlockContent(focusedBlockId, newContent);
+    const el = containerRef.current?.querySelector(`[data-block-id="${focusedBlockId}"] [contenteditable]`) as HTMLElement | null;
+    if (el) el.innerHTML = newContent;
+    spellCheck.clearMatches();
+    setTimeout(() => {
+      const b = blocks.find(x => x.id === focusedBlockId);
+      if (b) spellCheck.check(newContent);
+    }, 100);
+  }, [focusedBlockId, blocks, spellCheck]);
+
   return (
     <div className="flex flex-col">
     <FormatToolbar
       visible={!hideControls && !hideFormattingToolbar}
       lineSpacing={lineSpacing}
       onLineSpacingChange={setLineSpacing}
+      spellMode={spellCheck.mode}
+      spellLang={spellCheck.lang}
+      onSpellModeChange={!hideControls ? spellCheck.setMode : undefined}
+      onSpellLangChange={spellCheck.setLang}
+      spellMatchCount={spellCheck.matches.length}
+      spellIsChecking={spellCheck.isChecking}
     />
     <div
       ref={containerRef}
@@ -1521,7 +1712,7 @@ function SortableBlock({
             </div>
           ) : (
             <>
-              {renderBlockContent(block, contentRef, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata)}
+              {renderBlockContent(block, contentRef, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata, spellCheck.mode, spellCheck.lang)}
               {!block.content && !isFocused && !hideControls && (
                 <div className="absolute top-0 left-0 text-muted-foreground/30 pointer-events-none italic">
                   {s.placeholder}
@@ -1639,8 +1830,11 @@ function renderBlockContent(
   firstLineIndent?: number,
   listIndex?: number,
   onUpdateMetadata?: (metadata: any) => void,
+  spellCheckMode?: SpellCheckMode,
+  spellLangAttr?: string,
 ) {
   const i = s || BLOCK_EDITOR_I18N.en;
+  const nativeSpellCheck = spellCheckMode === "basic" || spellCheckMode === "smart";
   const commonProps = {
     ref,
     contentEditable: !hideControls,
@@ -1650,6 +1844,8 @@ function renderBlockContent(
     onBlur,
     onPaste,
     suppressContentEditableWarning: true,
+    spellCheck: hideControls ? false : nativeSpellCheck,
+    lang: nativeSpellCheck && spellLangAttr && spellLangAttr !== "auto" ? spellLangAttr : undefined,
     className: cn("outline-none w-full", hideControls && "cursor-default"),
     "data-testid": `block-content-${block.type}-${block.id}`,
   };
