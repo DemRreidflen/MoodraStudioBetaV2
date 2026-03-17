@@ -32,7 +32,8 @@ export async function checkText(
   lang: SpellCheckLang
 ): Promise<LTMatch[]> {
   if (!text.trim() || text.length < 4) return [];
-  const effLang = lang === "auto" ? "en-US" : lang;
+  // Pass "auto" through to LanguageTool for server-side auto-detection
+  const effLang = lang;
   const key = `${effLang}:${text}`;
   if (cache.has(key)) return cache.get(key)!;
 

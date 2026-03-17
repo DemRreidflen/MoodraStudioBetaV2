@@ -1611,39 +1611,66 @@ function SortableBlock({
     const AUTOCORRECT_TRIGGERS = new Set([" ", ".", ",", "!", "?", ";", ":"]);
     if (autocorrectEnabled && autocorrectMatches && autocorrectMatches.length > 0 && AUTOCORRECT_TRIGGERS.has(e.key)) {
       const el = contentRef.current;
-      if (el) {
-        // Get text from start of block up to cursor
-        const sel = window.getSelection();
-        let textBefore = "";
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0).cloneRange();
-          range.setStart(el, 0);
-          textBefore = range.toString();
-        }
-        // Extract last word before cursor (works for Latin, Cyrillic, etc.)
+      const nativeSel = window.getSelection();
+      if (el && nativeSel && nativeSel.rangeCount > 0) {
+        // Get plain text from block start to cursor using a pre-cursor range
+        const cursorRange = nativeSel.getRangeAt(0);
+        const preRange = document.createRange();
+        try { preRange.setStart(el, 0); } catch { /* ignore */ }
+        preRange.setEnd(cursorRange.startContainer, cursorRange.startOffset);
+        const textBefore = preRange.toString();
+
+        // Extract last word before cursor (handles Latin, Cyrillic, Umlauts, etc.)
         const lastWordMatch = textBefore.match(/[^\s.,!?;:'"()\[\]{}<>]+$/);
         if (lastWordMatch) {
           const lastWord = lastWordMatch[0];
-          // Find a matching LT error whose context covers exactly this word
           const hit = autocorrectMatches.find(m => {
             const errText = m.context.text.slice(m.context.offset, m.context.offset + m.context.length);
             return errText === lastWord && m.replacements.length > 0;
           });
           if (hit) {
             const replacement = hit.replacements[0].value;
-            // Select the last word and replace it using execCommand for undo support
-            const nativeSel = window.getSelection();
-            if (nativeSel && nativeSel.rangeCount > 0) {
-              const wordRange = nativeSel.getRangeAt(0).cloneRange();
-              wordRange.setStart(wordRange.startContainer, wordRange.startOffset - lastWord.length);
-              nativeSel.removeAllRanges();
-              nativeSel.addRange(wordRange);
-              document.execCommand("insertText", false, replacement);
+            const cursorPos = textBefore.length;
+            const startPos = cursorPos - lastWord.length;
+
+            // DOM-safe selection: walk all text nodes to map plain-text offsets to DOM positions
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            const textNodes: Array<{ node: Text; start: number }> = [];
+            let total = 0;
+            let n: Node | null;
+            while ((n = walker.nextNode())) {
+              textNodes.push({ node: n as Text, start: total });
+              total += (n as Text).length;
             }
-            // Toast notification
-            window.dispatchEvent(new CustomEvent("moodra:autocorrect-toast", {
-              detail: { original: lastWord, replacement }
-            }));
+
+            let startNode: Text | null = null, startOff = 0;
+            let endNode: Text | null = null, endOff = 0;
+            for (const { node, start } of textNodes) {
+              const end = start + node.length;
+              if (startNode === null && startPos >= start && startPos <= end) {
+                startNode = node; startOff = startPos - start;
+              }
+              if (endNode === null && cursorPos >= start && cursorPos <= end) {
+                endNode = node; endOff = cursorPos - start;
+              }
+              if (startNode && endNode) break;
+            }
+
+            if (startNode && endNode) {
+              try {
+                const wordRange = document.createRange();
+                wordRange.setStart(startNode, startOff);
+                wordRange.setEnd(endNode, endOff);
+                nativeSel.removeAllRanges();
+                nativeSel.addRange(wordRange);
+                document.execCommand("insertText", false, replacement);
+                window.dispatchEvent(new CustomEvent("moodra:autocorrect-toast", {
+                  detail: { original: lastWord, replacement }
+                }));
+              } catch {
+                // If DOM manipulation fails, do nothing — let the keypress proceed normally
+              }
+            }
           }
         }
       }
