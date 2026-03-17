@@ -75,10 +75,7 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     spellOff: "Off", spellBasic: "Basic", spellSmart: "Smart",
     spellCheck: "Spell Check", spellLang: "Language", spellErrors: "Errors",
     spellNoErrors: "No errors found", spellApply: "Apply", spellIgnore: "Ignore",
-    spellChecking: "Checking...", spellMode: "Check mode",
-    autocorrect: "Autocorrect", autocorrectOn: "ON", autocorrectOff: "OFF",
-    autocorrectToast: "Autocorrected",
-    autocorrectHint: "T9: space / punctuation \u2192 auto-fix",
+    spellChecking: "Checking...", spellMode: "Check mode"
   },
   ru: {
     improve: "Улучшить", expand: "Расширить", shorten: "Сократить", rephrase: "Переформулировать", example: "+ Пример", strengthen: "Усилить",
@@ -109,10 +106,7 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     spellOff: "Выкл", spellBasic: "Базовый", spellSmart: "Умный",
     spellCheck: "Правописание", spellLang: "Язык", spellErrors: "Ошибки",
     spellNoErrors: "Ошибок не найдено", spellApply: "Применить", spellIgnore: "Пропустить",
-    spellChecking: "Проверяю...", spellMode: "Режим проверки",
-    autocorrect: "Автокоррекция", autocorrectOn: "ВКЛ", autocorrectOff: "ВЫКЛ",
-    autocorrectToast: "Исправлено",
-    autocorrectHint: "T9: пробел / знак \u2192 автозамена",
+    spellChecking: "Проверяю...", spellMode: "Режим проверки"
   },
   ua: {
     improve: "Поліпшити", expand: "Розширити", shorten: "Скоротити", rephrase: "Перефразувати", example: "+ Приклад", strengthen: "Посилити",
@@ -143,10 +137,7 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     spellOff: "Вимкн", spellBasic: "Базовий", spellSmart: "Розумний",
     spellCheck: "Правопис", spellLang: "Мова", spellErrors: "Помилки",
     spellNoErrors: "Помилок не знайдено", spellApply: "Застосувати", spellIgnore: "Пропустити",
-    spellChecking: "Перевіряю...", spellMode: "Режим перевірки",
-    autocorrect: "Автокорекція", autocorrectOn: "УВК", autocorrectOff: "ВИМК",
-    autocorrectToast: "Виправлено",
-    autocorrectHint: "T9: пробіл / знак \u2192 автозаміна",
+    spellChecking: "Перевіряю...", spellMode: "Режим перевірки"
   },
   de: {
     improve: "Verbessern", expand: "Erweitern", shorten: "Kürzen", rephrase: "Umformulieren", example: "+ Beispiel", strengthen: "Verstärken",
@@ -177,10 +168,7 @@ const BLOCK_EDITOR_I18N: Record<string, Record<string, string>> = {
     spellOff: "Aus", spellBasic: "Basis", spellSmart: "Smart",
     spellCheck: "Rechtschreibung", spellLang: "Sprache", spellErrors: "Fehler",
     spellNoErrors: "Keine Fehler gefunden", spellApply: "Anwenden", spellIgnore: "Ignorieren",
-    spellChecking: "Prüfe...", spellMode: "Prüfmodus",
-    autocorrect: "Autokorrektur", autocorrectOn: "AN", autocorrectOff: "AUS",
-    autocorrectToast: "Korrigiert",
-    autocorrectHint: "T9: Leerzeichen / Satzzeichen \u2192 Auto-Fix",
+    spellChecking: "Prüfe...", spellMode: "Prüfmodus"
   },
 };
 
@@ -274,8 +262,6 @@ function FormatToolbar({
   onSpellLangChange,
   spellMatchCount,
   spellIsChecking,
-  autocorrect,
-  onAutocorrectChange,
 }: {
   visible: boolean;
   lineSpacing: string;
@@ -286,8 +272,6 @@ function FormatToolbar({
   onSpellLangChange?: (l: SpellCheckLang) => void;
   spellMatchCount?: number;
   spellIsChecking?: boolean;
-  autocorrect?: boolean;
-  onAutocorrectChange?: (v: boolean) => void;
 }) {
   const { lang } = useLang();
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
@@ -563,8 +547,6 @@ function FormatToolbar({
               onLangChange={onSpellLangChange!}
               matchCount={spellMatchCount ?? 0}
               isChecking={spellIsChecking ?? false}
-              autocorrect={autocorrect ?? false}
-              onAutocorrectChange={onAutocorrectChange}
               s={s}
             />
           </>
@@ -578,7 +560,7 @@ const SPELL_LANGS: SpellCheckLang[] = ["auto", "en-US", "ru-RU", "uk-UA", "de-DE
 const SPELL_MODES: SpellCheckMode[] = ["off", "basic", "smart"];
 
 function SpellCheckWidget({
-  mode, lang, onModeChange, onLangChange, matchCount, isChecking, autocorrect, onAutocorrectChange, s,
+  mode, lang, onModeChange, onLangChange, matchCount, isChecking, s,
 }: {
   mode: SpellCheckMode;
   lang: SpellCheckLang;
@@ -586,8 +568,6 @@ function SpellCheckWidget({
   onLangChange: (l: SpellCheckLang) => void;
   matchCount: number;
   isChecking: boolean;
-  autocorrect: boolean;
-  onAutocorrectChange?: (v: boolean) => void;
   s: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
@@ -667,45 +647,6 @@ function SpellCheckWidget({
             ))}
           </div>
 
-          {onAutocorrectChange && (
-            <div className="border-t border-border/30 pt-2 mt-1">
-              <div className="flex items-center justify-between">
-                <span className={cn(
-                  "text-[11px] font-semibold",
-                  mode === "off" || mode === "basic" ? "text-muted-foreground/40" : "text-foreground"
-                )}>
-                  {s.autocorrect}
-                </span>
-                <button
-                  onMouseDown={e => {
-                    e.preventDefault();
-                    if (mode === "off" || mode === "basic") return;
-                    onAutocorrectChange(!autocorrect);
-                  }}
-                  disabled={mode === "off" || mode === "basic"}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors",
-                    mode === "off" || mode === "basic"
-                      ? "text-muted-foreground/30 cursor-not-allowed"
-                      : autocorrect
-                        ? "bg-green-500/15 text-green-600"
-                        : "bg-muted/50 text-muted-foreground hover:bg-accent/70"
-                  )}
-                >
-                  <span className={cn(
-                    "w-2 h-2 rounded-full",
-                    mode === "off" || mode === "basic" ? "bg-muted-foreground/20" : autocorrect ? "bg-green-500" : "bg-muted-foreground/40"
-                  )} />
-                  {mode !== "off" && mode !== "basic" && autocorrect ? s.autocorrectOn : s.autocorrectOff}
-                </button>
-              </div>
-              {mode !== "off" && mode !== "basic" && autocorrect && (
-                <div className="text-[10px] text-muted-foreground/50 mt-1 leading-snug">
-                  {s.autocorrectHint}
-                </div>
-              )}
-            </div>
-          )}
 
           {mode === "smart" && (
             <div className="border-t border-border/30 pt-2 mt-1">
@@ -1177,20 +1118,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
     }, 0);
   }, [blocks, hideControls, updateBlocks]);
 
-  // Listen for autocorrect toast events dispatched by SortableBlock
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { original, replacement } = (e as CustomEvent).detail;
-      toast({
-        title: s.autocorrectToast,
-        description: `${original} → ${replacement}`,
-        duration: 2000,
-      });
-    };
-    window.addEventListener("moodra:autocorrect-toast", handler);
-    return () => window.removeEventListener("moodra:autocorrect-toast", handler);
-  }, [toast, s.autocorrectToast]);
-
   // Broadcast spell matches to AiPanel Correctness tab via custom events
   useEffect(() => {
     if (hideControls) return;
@@ -1299,8 +1226,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
       onSpellLangChange={spellCheck.setLang}
       spellMatchCount={spellCheck.matches.length}
       spellIsChecking={spellCheck.isChecking}
-      autocorrect={spellCheck.autocorrect}
-      onAutocorrectChange={!hideControls ? spellCheck.setAutocorrect : undefined}
     />
     <div
       ref={containerRef}
@@ -1479,8 +1404,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
                   listIndex={listIndex}
                   spellCheckMode={spellCheck.mode}
                   spellLangAttr={spellCheck.lang !== "auto" ? spellCheck.lang : undefined}
-                  autocorrectEnabled={spellCheck.autocorrect && spellCheck.mode === "smart"}
-                  autocorrectMatches={focusedBlockId === block.id ? spellCheck.matches : undefined}
                 />
               );
             })}
@@ -1510,8 +1433,6 @@ interface SortableBlockProps {
   listIndex?: number;
   spellCheckMode?: SpellCheckMode;
   spellLangAttr?: string;
-  autocorrectEnabled?: boolean;
-  autocorrectMatches?: LTMatch[];
 }
 
 function placeCaretAtTextOffset(el: HTMLElement, targetOffset: number) {
@@ -1564,8 +1485,6 @@ function SortableBlock({
   listIndex,
   spellCheckMode,
   spellLangAttr,
-  autocorrectEnabled,
-  autocorrectMatches,
 }: SortableBlockProps) {
   const {
     attributes,
@@ -1631,78 +1550,6 @@ function SortableBlock({
     const isEmpty = contentRef.current?.innerText?.trim() === "";
     const isListBlock = block.type === "bullet_item" || block.type === "numbered_item" || block.type === "check_item";
     const currentIndent = block.metadata?.indentLevel ?? 0;
-
-    // T9 Autocorrect: intercept Space / punctuation when autocorrect is active
-    const AUTOCORRECT_TRIGGERS = new Set([" ", ".", ",", "!", "?", ";", ":"]);
-    if (autocorrectEnabled && autocorrectMatches && autocorrectMatches.length > 0 && AUTOCORRECT_TRIGGERS.has(e.key)) {
-      const el = contentRef.current;
-      const nativeSel = window.getSelection();
-      if (el && nativeSel && nativeSel.rangeCount > 0) {
-        // Get plain text from block start to cursor using a pre-cursor range
-        const cursorRange = nativeSel.getRangeAt(0);
-        const preRange = document.createRange();
-        try { preRange.setStart(el, 0); } catch { /* ignore */ }
-        preRange.setEnd(cursorRange.startContainer, cursorRange.startOffset);
-        const textBefore = preRange.toString();
-
-        // Extract last word before cursor (handles Latin, Cyrillic, Umlauts, etc.)
-        const lastWordMatch = textBefore.match(/[^\s.,!?;:'"()\[\]{}<>]+$/);
-        if (lastWordMatch) {
-          const lastWord = lastWordMatch[0];
-          const cursorPos = textBefore.length;
-          const startPos = cursorPos - lastWord.length;
-          // Prefer exact offset+length match so repeated words resolve to the one at the cursor
-          const hit = autocorrectMatches.find(m =>
-            m.offset === startPos && m.length === lastWord.length && m.replacements.length > 0
-          ) ?? autocorrectMatches.find(m => {
-            const errText = m.context.text.slice(m.context.offset, m.context.offset + m.context.length);
-            return errText === lastWord && m.replacements.length > 0;
-          });
-          if (hit) {
-            const replacement = hit.replacements[0].value;
-
-            // DOM-safe selection: walk all text nodes to map plain-text offsets to DOM positions
-            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-            const textNodes: Array<{ node: Text; start: number }> = [];
-            let total = 0;
-            let n: Node | null;
-            while ((n = walker.nextNode())) {
-              textNodes.push({ node: n as Text, start: total });
-              total += (n as Text).length;
-            }
-
-            let startNode: Text | null = null, startOff = 0;
-            let endNode: Text | null = null, endOff = 0;
-            for (const { node, start } of textNodes) {
-              const end = start + node.length;
-              if (startNode === null && startPos >= start && startPos <= end) {
-                startNode = node; startOff = startPos - start;
-              }
-              if (endNode === null && cursorPos >= start && cursorPos <= end) {
-                endNode = node; endOff = cursorPos - start;
-              }
-              if (startNode && endNode) break;
-            }
-
-            if (startNode && endNode) {
-              try {
-                const wordRange = document.createRange();
-                wordRange.setStart(startNode, startOff);
-                wordRange.setEnd(endNode, endOff);
-                nativeSel.removeAllRanges();
-                nativeSel.addRange(wordRange);
-                document.execCommand("insertText", false, replacement);
-                window.dispatchEvent(new CustomEvent("moodra:autocorrect-toast", {
-                  detail: { original: lastWord, replacement }
-                }));
-              } catch {
-                // If DOM manipulation fails, do nothing — let the keypress proceed normally
-              }
-            }
-          }
-        }
-      }
-    }
 
     // Tab / Shift+Tab — change indent level
     if (e.key === "Tab") {

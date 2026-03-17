@@ -12,15 +12,14 @@ const STORAGE_KEY = "moodra_spell_check_settings";
 interface SpellCheckSettings {
   mode: SpellCheckMode;
   lang: SpellCheckLang;
-  autocorrect: boolean;
 }
 
 function loadSettings(): SpellCheckSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return { mode: "basic", lang: "auto", autocorrect: false, ...JSON.parse(stored) };
+    if (stored) return { mode: "basic", lang: "auto", ...JSON.parse(stored) };
   } catch {}
-  return { mode: "basic", lang: "auto", autocorrect: false };
+  return { mode: "basic", lang: "auto" };
 }
 
 export function useSpellCheck() {
@@ -43,10 +42,6 @@ export function useSpellCheck() {
   const setLang = useCallback((lang: SpellCheckLang) => {
     setSettings((prev) => saveAndSet({ ...prev, lang }));
     setMatches([]);
-  }, []);
-
-  const setAutocorrect = useCallback((autocorrect: boolean) => {
-    setSettings((prev) => saveAndSet({ ...prev, autocorrect }));
   }, []);
 
   const check = useCallback(
@@ -80,10 +75,8 @@ export function useSpellCheck() {
   return {
     mode: settings.mode,
     lang: settings.lang,
-    autocorrect: settings.autocorrect,
     setMode,
     setLang,
-    setAutocorrect,
     matches,
     isChecking,
     check,
