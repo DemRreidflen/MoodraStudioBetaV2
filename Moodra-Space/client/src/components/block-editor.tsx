@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useLayoutEffect, useRef, forwardRef, type ReactNode } from "react";
 import { useSpellCheck } from "@/hooks/use-spell-check";
-import { LANG_LABELS, LANG_FULL_LABELS, LANG_BROWSER_ATTR, type SpellCheckMode, type SpellCheckLang } from "@/lib/spell-check-service";
+import { LANG_LABELS, LANG_FULL_LABELS, LANG_BROWSER_ATTR, type SpellCheckMode, type SpellCheckLang, type LTMatch } from "@/lib/spell-check-service";
 import {
   DndContext,
   closestCenter,
@@ -1119,7 +1119,7 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusedBlockId, spellCheck.mode, spellCheck.lang]);
 
-  const applySpellFix = useCallback((match: import("@/lib/spell-check-service").LTMatch, replacement: string) => {
+  const applySpellFix = useCallback((match: LTMatch, replacement: string) => {
     if (!focusedBlockId) return;
     const block = blocks.find(b => b.id === focusedBlockId);
     if (!block) return;
@@ -1325,6 +1325,8 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
                   firstLineIndent={firstLineIndent}
                   cursorTarget={cursorTargetRef}
                   listIndex={listIndex}
+                  spellCheckMode={spellCheck.mode}
+                  spellLangAttr={spellCheck.lang !== "auto" ? spellCheck.lang : undefined}
                 />
               );
             })}
@@ -1332,6 +1334,59 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
         </SortableContext>
       </DndContext>
     </div>
+
+    {/* Spell check matches panel */}
+    {!hideControls && spellCheck.mode === "smart" && spellCheck.matches.length > 0 && (
+      <div className="mx-auto w-full max-w-[1200px] px-4 pb-4">
+        <div className="border border-border/40 rounded-2xl bg-background/70 backdrop-blur-sm overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border/30 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">{s.spellErrors}</span>
+              <span className="flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.5"
+                style={{ background: "#ef4444", minWidth: "1.25rem" }}>
+                {spellCheck.matches.length}
+              </span>
+            </div>
+            <button
+              className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              onMouseDown={e => { e.preventDefault(); spellCheck.clearMatches(); }}
+            >
+              {s.spellIgnore} {s.spellErrors.toLowerCase()}
+            </button>
+          </div>
+          <div className="divide-y divide-border/20 max-h-64 overflow-y-auto">
+            {spellCheck.matches.map((match, idx) => (
+              <div key={idx} className="px-4 py-3 flex items-start gap-3 group">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[12px] font-semibold text-red-500 line-through">
+                      {match.context.text.slice(match.context.offset, match.context.offset + match.context.length)}
+                    </span>
+                    {match.replacements.slice(0, 4).map((r, ri) => (
+                      <button
+                        key={ri}
+                        onMouseDown={e => { e.preventDefault(); applySpellFix(match, r.value); }}
+                        className="text-[12px] font-semibold text-primary hover:underline px-1.5 py-0.5 rounded-lg hover:bg-primary/10 transition-colors"
+                      >
+                        {r.value}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground/60 leading-snug">{match.message}</div>
+                </div>
+                <button
+                  title={s.spellIgnore}
+                  onMouseDown={e => { e.preventDefault(); spellCheck.ignoreRule(match.rule.id); }}
+                  className="text-muted-foreground/30 hover:text-muted-foreground transition-colors text-[18px] leading-none mt-0.5 flex-shrink-0"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
@@ -1352,6 +1407,8 @@ interface SortableBlockProps {
   firstLineIndent?: number;
   cursorTarget?: React.MutableRefObject<{ blockId: string; offset: number } | null>;
   listIndex?: number;
+  spellCheckMode?: SpellCheckMode;
+  spellLangAttr?: string;
 }
 
 function placeCaretAtTextOffset(el: HTMLElement, targetOffset: number) {
@@ -1402,6 +1459,8 @@ function SortableBlock({
   firstLineIndent,
   cursorTarget,
   listIndex,
+  spellCheckMode,
+  spellLangAttr,
 }: SortableBlockProps) {
   const {
     attributes,
@@ -1712,7 +1771,7 @@ function SortableBlock({
             </div>
           ) : (
             <>
-              {renderBlockContent(block, contentRef, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata, spellCheck.mode, spellCheck.lang)}
+              {renderBlockContent(block, contentRef, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata, spellCheckMode, spellLangAttr)}
               {!block.content && !isFocused && !hideControls && (
                 <div className="absolute top-0 left-0 text-muted-foreground/30 pointer-events-none italic">
                   {s.placeholder}

@@ -75,6 +75,12 @@ Notes editor has a compact AI action strip (Connect · Expand · Distill · Tags
   - **DB schema extended**: `rawContent`, `linkedNoteIds`, `linkedDraftIds`, `importance`, `status`, `aiAnalysis` columns added to `sources` table
   - **Components**: `client/src/components/sources-tab.tsx`; wired into `research-panel.tsx` replacing old Library tab body
 - **Two book modes**: Scientific (non-fiction, philosophy) and Fiction (novels, sci-fi)
+- **Spell Check System** (LanguageTool-powered, fully integrated in block-editor):
+  - **3 modes**: Off / Basic (native browser underlines only) / Smart (LanguageTool API via `/api/text-check` proxy)
+  - **5 languages**: Auto, EN-US, RU-RU, UK-UA, DE-DE; stored in `localStorage` under `moodra_spell_check_settings`
+  - **ABC button** in FormatToolbar: opens panel with mode switcher, language picker, live error count badge
+  - **Smart mode**: auto-checks focused block (debounced 600ms), shows error panel below editor with suggested fixes (one-click apply) and per-rule ignore
+  - **Files**: `client/src/lib/spell-check-service.ts` (types, LRU cache, `checkText`, `stripHtml`, labels), `client/src/hooks/use-spell-check.ts` (mode/lang state, debounce, `ignoreRule`, `clearMatches`); `/api/text-check` proxy in `server/routes.ts`
 - **Notion-like block editor**: 18+ block types with drag-and-drop reordering (@dnd-kit); solid FormatToolbar (no blur); selection-only AI improve; cursor-at-merge junction
 - **List block types**: `bullet_item`, `numbered_item`, `check_item` — first-class blocks; Enter continues list, Backspace on empty exits to paragraph; numbered items auto-count consecutive runs; check_item toggles checked state via metadata.checked; all render in PDF/layout with proper indentation
 - **Block nesting / indentLevel**: `metadata.indentLevel` (0–8) persists through layout preview (`layout-panel.tsx`) and PDF/HTML export (`server/routes.ts blockToHtml`). All block types apply `margin-left: indentLevel * 1.8em`. List items additionally offset by +1 level. Drop-cap and first-line-indent only apply at indentLevel 0. Indented paragraphs switch to left-align (not justify).

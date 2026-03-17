@@ -66,7 +66,7 @@ export function useSpellCheck() {
   );
 
   const ignoreRule = useCallback((ruleId: string) => {
-    setIgnoredRules((prev) => new Set([...prev, ruleId]));
+    setIgnoredRules((prev) => { const next = new Set(Array.from(prev)); next.add(ruleId); return next; });
     setMatches((prev) => prev.filter((m) => m.rule.id !== ruleId));
   }, []);
 
