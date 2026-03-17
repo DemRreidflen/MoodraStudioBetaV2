@@ -1191,13 +1191,50 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
     return () => window.removeEventListener("moodra:autocorrect-toast", handler);
   }, [toast, s.autocorrectToast]);
 
-  // Auto spell-check focused block in SMART mode
+  // Broadcast spell matches to AiPanel Correctness tab via custom events
   useEffect(() => {
-    if (spellCheck.mode !== "smart" || !focusedBlockId) return;
-    const block = blocks.find(b => b.id === focusedBlockId);
-    if (block) spellCheck.check(block.content);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedBlockId, spellCheck.mode, spellCheck.lang]);
+    if (hideControls) return;
+    window.dispatchEvent(new CustomEvent("moodra:spell-update", {
+      detail: { matches: spellCheck.matches }
+    }));
+  }, [spellCheck.matches, hideControls]);
+
+  // Navigate to a block + flash it red when AiPanel Correctness tab requests it
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { blockId } = (e as CustomEvent).detail as { blockId: string };
+      setFocusedBlockId(blockId);
+      const blockEl = containerRef.current?.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null;
+      if (!blockEl) return;
+      blockEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      blockEl.style.transition = "background-color 0.2s ease";
+      blockEl.style.backgroundColor = "rgba(239,68,68,0.18)";
+      setTimeout(() => { blockEl.style.backgroundColor = ""; }, 1800);
+    };
+    window.addEventListener("moodra:spell-navigate", handler);
+    return () => window.removeEventListener("moodra:spell-navigate", handler);
+  }, []);
+
+  // Refs to capture latest values for stable event handlers
+  const latestFixAll = useRef<() => void>(() => {});
+  useEffect(() => {
+    latestFixAll.current = () => {
+      if (!focusedBlockId) return;
+      const block = blocks.find(b => b.id === focusedBlockId);
+      if (!block) return;
+      const toFix = spellCheck.matches.filter(m => m.replacements.length > 0);
+      if (!toFix.length) return;
+      let content = block.content;
+      toFix.forEach(m => {
+        const errText = m.context.text.slice(m.context.offset, m.context.offset + m.context.length);
+        if (content.includes(errText)) content = content.replace(errText, m.replacements[0].value);
+      });
+      updateBlockContent(focusedBlockId, content);
+      const el = containerRef.current?.querySelector(`[data-block-id="${focusedBlockId}"] [contenteditable]`) as HTMLElement | null;
+      if (el) el.innerHTML = content;
+      spellCheck.clearMatches();
+    };
+  }, [focusedBlockId, blocks, spellCheck, updateBlockContent]);
 
   const applySpellFix = useCallback((match: LTMatch, replacement: string) => {
     if (!focusedBlockId) return;
@@ -1215,7 +1252,40 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
       const b = blocks.find(x => x.id === focusedBlockId);
       if (b) spellCheck.check(newContent);
     }, 100);
-  }, [focusedBlockId, blocks, spellCheck]);
+  }, [focusedBlockId, blocks, spellCheck, updateBlockContent]);
+
+  const latestFixOne = useRef(applySpellFix);
+  useEffect(() => { latestFixOne.current = applySpellFix; }, [applySpellFix]);
+
+  const latestIgnore = useRef(spellCheck.ignoreRule);
+  useEffect(() => { latestIgnore.current = spellCheck.ignoreRule; }, [spellCheck.ignoreRule]);
+
+  useEffect(() => {
+    const fixAll = () => latestFixAll.current();
+    const fixOne = (e: Event) => {
+      const { match, replacement } = (e as CustomEvent).detail;
+      latestFixOne.current(match, replacement);
+    };
+    const ignore = (e: Event) => {
+      latestIgnore.current((e as CustomEvent).detail.ruleId);
+    };
+    window.addEventListener("moodra:spell-fix-all", fixAll);
+    window.addEventListener("moodra:spell-fix-one", fixOne);
+    window.addEventListener("moodra:spell-ignore", ignore);
+    return () => {
+      window.removeEventListener("moodra:spell-fix-all", fixAll);
+      window.removeEventListener("moodra:spell-fix-one", fixOne);
+      window.removeEventListener("moodra:spell-ignore", ignore);
+    };
+  }, []);
+
+  // Auto spell-check focused block in SMART mode
+  useEffect(() => {
+    if (spellCheck.mode !== "smart" || !focusedBlockId) return;
+    const block = blocks.find(b => b.id === focusedBlockId);
+    if (block) spellCheck.check(block.content);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedBlockId, spellCheck.mode, spellCheck.lang]);
 
   return (
     <div className="flex flex-col">
@@ -1249,8 +1319,8 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
           data-testid="selection-ai-toolbar"
           className="fixed z-[9999] transform -translate-x-1/2 -translate-y-full"
           style={{
-            left: selectionBar.x + (containerRef.current?.getBoundingClientRect().left || 0),
-            top: selectionBar.y + (containerRef.current?.getBoundingClientRect().top || 0) - 6,
+            left: (selectionBar?.x ?? 0) + (containerRef.current?.getBoundingClientRect().left || 0),
+            top: (selectionBar?.y ?? 0) + (containerRef.current?.getBoundingClientRect().top || 0) - 6,
           }}
         >
           <div className="bg-[#1C1C1E] dark:bg-zinc-900 rounded-xl shadow-xl flex items-center gap-0.5 p-1 border border-white/10">
@@ -1418,59 +1488,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
         </SortableContext>
       </DndContext>
     </div>
-
-    {/* Spell check matches panel */}
-    {!hideControls && spellCheck.mode === "smart" && spellCheck.matches.length > 0 && (
-      <div className="mx-auto w-full max-w-[1200px] px-4 pb-4">
-        <div className="border border-border/40 rounded-2xl bg-background/70 backdrop-blur-sm overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-border/30 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">{s.spellErrors}</span>
-              <span className="flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.5"
-                style={{ background: "#ef4444", minWidth: "1.25rem" }}>
-                {spellCheck.matches.length}
-              </span>
-            </div>
-            <button
-              className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-              onMouseDown={e => { e.preventDefault(); spellCheck.clearMatches(); }}
-            >
-              {s.spellIgnore} {s.spellErrors.toLowerCase()}
-            </button>
-          </div>
-          <div className="divide-y divide-border/20 max-h-64 overflow-y-auto">
-            {spellCheck.matches.map((match, idx) => (
-              <div key={idx} className="px-4 py-3 flex items-start gap-3 group">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-[12px] font-semibold text-red-500 line-through">
-                      {match.context.text.slice(match.context.offset, match.context.offset + match.context.length)}
-                    </span>
-                    {match.replacements.slice(0, 4).map((r, ri) => (
-                      <button
-                        key={ri}
-                        onMouseDown={e => { e.preventDefault(); applySpellFix(match, r.value); }}
-                        className="text-[12px] font-semibold text-primary hover:underline px-1.5 py-0.5 rounded-lg hover:bg-primary/10 transition-colors"
-                      >
-                        {r.value}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground/60 leading-snug">{match.message}</div>
-                </div>
-                <button
-                  title={s.spellIgnore}
-                  onMouseDown={e => { e.preventDefault(); spellCheck.ignoreRule(match.rule.id); }}
-                  className="text-muted-foreground/30 hover:text-muted-foreground transition-colors text-[18px] leading-none mt-0.5 flex-shrink-0"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )}
     </div>
   );
 }

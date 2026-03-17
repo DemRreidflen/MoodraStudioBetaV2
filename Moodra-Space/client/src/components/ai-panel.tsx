@@ -13,7 +13,7 @@ import {
   Copy, Check, RefreshCw, BookOpen, Telescope, FileSearch,
   Scan, ToggleLeft, ToggleRight, Square, ChevronDown, ChevronUp, ChevronRight,
   Users, Scale, Link2, Save, BookMarked, BarChart2, Clock, AlertTriangle,
-  Loader2, UserSearch, Upload, FileText
+  Loader2, UserSearch, Upload, FileText, CheckCircle2, Zap, Navigation
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -236,6 +236,14 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const streamRef = useRef<HTMLDivElement>(null);
+
+  // Spell/grammar errors from BlockEditor (via moodra:spell-update event)
+  const [spellMatches, setSpellMatches] = useState<any[]>([]);
+  useEffect(() => {
+    const h = (e: Event) => setSpellMatches((e as CustomEvent).detail?.matches ?? []);
+    window.addEventListener("moodra:spell-update", h);
+    return () => window.removeEventListener("moodra:spell-update", h);
+  }, []);
 
   // ── Narrative Intelligence state ──────────────────────────────────────────
   const [ncCtx, setNcCtx] = useState<NarrativeContext>({});
@@ -1027,11 +1035,16 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
             <TabsTrigger value="generate" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-generate">
               {lang === "ru" ? "Написать" : lang === "ua" ? "Написати" : lang === "de" ? "Schreiben" : "Write"}
             </TabsTrigger>
-            <TabsTrigger value="chapters" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-chapters">
-              {lang === "ru" ? "Главы" : lang === "ua" ? "Розділи" : lang === "de" ? "Kapitel" : "Chapters"}
+            <TabsTrigger value="structure" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-structure">
+              {lang === "ru" ? "Структура" : lang === "ua" ? "Структура" : lang === "de" ? "Struktur" : "Structure"}
             </TabsTrigger>
-            <TabsTrigger value="style" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-style">
-              {lang === "ru" ? "Стиль" : lang === "ua" ? "Стиль" : lang === "de" ? "Stil" : "Style"}
+            <TabsTrigger value="correctness" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm relative" data-testid="tab-correctness">
+              {lang === "ru" ? "Правка" : lang === "ua" ? "Правка" : lang === "de" ? "Prüfung" : "Proofreading"}
+              {spellMatches.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center">
+                  {spellMatches.length > 9 ? "9+" : spellMatches.length}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="agents" className="flex-1 h-7 text-[10px] rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-agents">
               {lang === "ru" ? "Агенты" : lang === "ua" ? "Агенти" : lang === "de" ? "Agenten" : "Agents"}
@@ -1345,8 +1358,8 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
           </ScrollArea>
         </TabsContent>
 
-        {/* ─── СТРУКТУРА ─── */}
-        <TabsContent value="chapters" className="flex-1 overflow-hidden m-0 mt-0">
+        {/* ─── СТРУКТУРА + СТИЛЬ ─── */}
+        <TabsContent value="structure" className="flex-1 overflow-hidden m-0 mt-0">
           <ScrollArea className="h-full">
             <div className="p-3 space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -1444,18 +1457,15 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
               )}
 
               <HistoryBlock />
-            </div>
-          </ScrollArea>
-        </TabsContent>
 
-        {/* ─── СТИЛЬ ─── */}
-        <TabsContent value="style" className="flex-1 overflow-hidden m-0 mt-0">
-          <ScrollArea className="h-full">
-            <div className="p-3 space-y-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-1">
-                  {lang === "ru" ? "Анализ вашего стиля" : lang === "ua" ? "Аналіз вашого стилю" : lang === "de" ? "Stilanalyse" : "Your writing style"}
+              {/* ─── Стиль письма (внутри Структуры) ─── */}
+              <div className="border-t border-border/40 pt-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2">
+                  {lang === "ru" ? "Стиль письма" : lang === "ua" ? "Стиль письма" : lang === "de" ? "Schreibstil" : "Writing style"}
                 </p>
+              </div>
+              <div className="space-y-3">
+                <div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {lang === "ru" ? "AI изучает ваши тексты и применяет найденные паттерны при генерации." : lang === "ua" ? "AI вивчає ваші тексти і застосовує знайдені патерни при генерації." : lang === "de" ? "KI analysiert Ihre Texte und wendet erkannte Muster bei der Generierung an." : "AI studies your texts and applies found patterns when generating."}
                 </p>
@@ -1495,10 +1505,7 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                 <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/20">
                   <FileText className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                   <span className="text-[11px] text-primary truncate flex-1">{uploadedFileName}</span>
-                  <button
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => { setUploadedFileText(null); setUploadedFileName(null); }}
-                  >
+                  <button className="text-muted-foreground hover:text-foreground" onClick={() => { setUploadedFileText(null); setUploadedFileName(null); }}>
                     <X className="h-3 w-3" />
                   </button>
                 </div>
@@ -1513,26 +1520,20 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
                   <span className="text-[10px] text-muted-foreground">
                     {context.trim().length >= 50
-                      ? `${lang === "ru" ? "Текущая глава" : lang === "ua" ? "Поточний розділ" : lang === "de" ? "Aktuelles Kapitel" : "Current chapter"} (${context.length} ${lang === "de" ? "Zeichen" : "симв."})`
-                      : `${lang === "ru" ? "Главы книги" : lang === "ua" ? "Розділи книги" : lang === "de" ? "Buchkapitel" : "Book chapters"} (${effectiveContent.length} ${lang === "de" ? "Zeichen" : "симв."})`}
+                      ? `${lang === "ru" ? "Текущая глава" : lang === "ua" ? "Поточний розділ" : lang === "de" ? "Aktuelles Kapitel" : "Current chapter"} (${context.length} симв.)`
+                      : `${lang === "ru" ? "Главы книги" : lang === "ua" ? "Розділи книги" : lang === "de" ? "Buchkapitel" : "Book chapters"} (${effectiveContent.length} симв.)`}
                   </span>
                 </div>
               ) : null}
 
               {styleAnalysis && (
                 <div className="space-y-2.5">
-                  <button
-                    onClick={() => setApplyStyle(v => !v)}
-                    data-testid="button-toggle-style"
-                    className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors"
-                  >
-                    {applyStyle
-                      ? <ToggleRight className="h-5 w-5 text-primary flex-shrink-0" />
-                      : <ToggleLeft className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
+                  <button onClick={() => setApplyStyle(v => !v)} data-testid="button-toggle-style"
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors">
+                    {applyStyle ? <ToggleRight className="h-5 w-5 text-primary flex-shrink-0" /> : <ToggleLeft className="h-5 w-5 text-muted-foreground flex-shrink-0" />}
                     <div className="text-left">
                       <p className="text-xs font-medium">
-                        {applyStyle
-                          ? (lang === "ru" ? "Стиль применяется" : lang === "ua" ? "Стиль застосовується" : lang === "de" ? "Stil aktiv" : "Style applied")
+                        {applyStyle ? (lang === "ru" ? "Стиль применяется" : lang === "ua" ? "Стиль застосовується" : lang === "de" ? "Stil aktiv" : "Style applied")
                           : (lang === "ru" ? "Стиль отключён" : lang === "ua" ? "Стиль вимкнено" : lang === "de" ? "Stil deaktiviert" : "Style off")}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
@@ -1540,20 +1541,17 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                       </p>
                     </div>
                   </button>
-
                   <div className="border border-border rounded-lg overflow-hidden">
                     <div className="px-3 py-2 border-b border-border bg-muted/20 flex items-center gap-2">
                       <FileSearch className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-xs font-semibold">
-                        {lang === "ru" ? "Профиль автора" : lang === "ua" ? "Профіль автора" : lang === "de" ? "Autorprofil" : "Author profile"}
-                      </span>
+                      <span className="text-xs font-semibold">{lang === "ru" ? "Профиль автора" : lang === "ua" ? "Профіль автора" : lang === "de" ? "Autorprofil" : "Author profile"}</span>
                     </div>
                     <div className="p-3 space-y-2">
                       {[
                         { label: lang === "ru" ? "Словарь" : lang === "ua" ? "Словник" : lang === "de" ? "Wortschatz" : "Vocabulary", value: styleAnalysis.vocabularyLevel },
-                        { label: lang === "ru" ? "Предложения" : lang === "ua" ? "Речення" : lang === "de" ? "Sätze" : "Sentences",   value: styleAnalysis.avgSentenceLength },
-                        { label: lang === "ru" ? "Тон" : lang === "ua" ? "Тон" : lang === "de" ? "Ton" : "Tone",                      value: styleAnalysis.tone },
-                        { label: lang === "ru" ? "Ритм" : lang === "ua" ? "Ритм" : lang === "de" ? "Rhythmus" : "Rhythm",             value: styleAnalysis.rhythm },
+                        { label: lang === "ru" ? "Предложения" : lang === "ua" ? "Речення" : lang === "de" ? "Sätze" : "Sentences", value: styleAnalysis.avgSentenceLength },
+                        { label: lang === "ru" ? "Тон" : lang === "ua" ? "Тон" : lang === "de" ? "Ton" : "Tone", value: styleAnalysis.tone },
+                        { label: lang === "ru" ? "Ритм" : lang === "ua" ? "Ритм" : lang === "de" ? "Rhythmus" : "Rhythm", value: styleAnalysis.rhythm },
                         ...(styleAnalysis.pov ? [{ label: lang === "ru" ? "Перспектива" : lang === "ua" ? "Перспектива" : lang === "de" ? "Perspektive" : "POV", value: styleAnalysis.pov }] : []),
                         ...(styleAnalysis.dialogueStyle ? [{ label: lang === "ru" ? "Диалоги" : lang === "ua" ? "Діалоги" : lang === "de" ? "Dialoge" : "Dialogue", value: styleAnalysis.dialogueStyle }] : []),
                       ].map(row => (
@@ -1562,61 +1560,43 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-foreground capitalize">{row.value}</span>
                         </div>
                       ))}
-
                       {styleAnalysis.devices?.length > 0 && (
                         <div className="pt-1.5 border-t border-border/60">
-                          <p className="text-[10px] text-muted-foreground mb-1.5">
-                            {lang === "ru" ? "Приёмы" : lang === "ua" ? "Прийоми" : lang === "de" ? "Stilmittel" : "Devices"}
-                          </p>
+                          <p className="text-[10px] text-muted-foreground mb-1.5">{lang === "ru" ? "Приёмы" : lang === "ua" ? "Прийоми" : lang === "de" ? "Stilmittel" : "Devices"}</p>
                           <div className="flex flex-wrap gap-1">
-                            {styleAnalysis.devices.map((d, i) => (
+                            {styleAnalysis.devices.map((d: string, i: number) => (
                               <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md bg-primary/10 text-primary">{d}</span>
                             ))}
                           </div>
                         </div>
                       )}
-
                       {styleAnalysis.patterns && (
                         <div className="pt-1.5 border-t border-border/60">
-                          <p className="text-[10px] text-muted-foreground/70 mb-1">
-                            {lang === "ru" ? "Паттерны" : lang === "ua" ? "Патерни" : lang === "de" ? "Muster" : "Patterns"}
-                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 mb-1">{lang === "ru" ? "Паттерны" : lang === "ua" ? "Патерни" : lang === "de" ? "Muster" : "Patterns"}</p>
                           <p className="text-[11px] text-muted-foreground leading-relaxed">{styleAnalysis.patterns}</p>
                         </div>
                       )}
-
                       {styleAnalysis.summary && (
                         <div className="pt-1.5 border-t border-border/60">
-                          <p className="text-[10px] text-muted-foreground/70 mb-1">
-                            {lang === "ru" ? "Общий стиль" : lang === "ua" ? "Загальний стиль" : lang === "de" ? "Gesamtstil" : "Overview"}
-                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 mb-1">{lang === "ru" ? "Общий стиль" : lang === "ua" ? "Загальний стиль" : lang === "de" ? "Gesamtstil" : "Overview"}</p>
                           <p className="text-[11px] text-muted-foreground leading-relaxed">{styleAnalysis.summary}</p>
                         </div>
                       )}
-
                       {styleAnalysis.styleInstruction && (
                         <div className="pt-1.5 border-t border-border/60">
                           <div className="flex items-center gap-1 mb-1">
                             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                            <p className="text-[10px] text-primary font-medium">
-                              {lang === "ru" ? "AI инструкция" : lang === "ua" ? "AI інструкція" : lang === "de" ? "KI-Anweisung" : "AI instruction"}
-                            </p>
+                            <p className="text-[10px] text-primary font-medium">{lang === "ru" ? "AI инструкция" : lang === "ua" ? "AI інструкція" : lang === "de" ? "KI-Anweisung" : "AI instruction"}</p>
                           </div>
                           <p className="text-[11px] text-muted-foreground leading-relaxed italic">{styleAnalysis.styleInstruction}</p>
                         </div>
                       )}
                     </div>
                   </div>
-
-                  {/* Expand / Deepen style analysis */}
                   <div className="rounded-lg border border-border/60 overflow-hidden">
-                    <button
-                      className="w-full h-8 flex items-center justify-between px-3 text-[11px] font-medium text-muted-foreground hover:bg-accent/60 transition-colors"
-                      onClick={() => setShowExpandStyle(v => !v)}
-                      data-testid="button-show-expand-style"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <Sparkles className="h-3 w-3 text-primary/70" />
+                    <button className="w-full h-8 flex items-center justify-between px-3 text-[11px] font-medium text-muted-foreground hover:bg-accent/60 transition-colors"
+                      onClick={() => setShowExpandStyle(v => !v)} data-testid="button-show-expand-style">
+                      <span className="flex items-center gap-1.5"><Sparkles className="h-3 w-3 text-primary/70" />
                         {lang === "ru" ? "Углубить анализ" : lang === "ua" ? "Поглибити аналіз" : lang === "de" ? "Analyse vertiefen" : "Deepen analysis"}
                       </span>
                       <ChevronDown className={`h-3 w-3 transition-transform ${showExpandStyle ? "rotate-180" : ""}`} />
@@ -1624,12 +1604,12 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                     {showExpandStyle && (
                       <div className="px-3 pb-3 pt-1 space-y-2 bg-muted/20 border-t border-border/40">
                         <p className="text-[10px] text-muted-foreground">
-                          {lang === "ru" ? "Добавьте заметку для AI (необязательно) — например, уточните жанр или укажите особенности стиля:" : lang === "ua" ? "Додайте нотатку для AI (необов'язково) — наприклад, уточніть жанр або особливості стилю:" : lang === "de" ? "Optionale Notiz für KI — z.B. Genre oder Stilmerkmale präzisieren:" : "Optional note for AI — e.g. clarify genre or specific style traits:"}
+                          {lang === "ru" ? "Добавьте заметку для AI (необязательно):" : lang === "ua" ? "Додайте нотатку для AI (необов'язково):" : lang === "de" ? "Optionale Notiz für KI:" : "Optional note for AI:"}
                         </p>
                         <textarea
                           className="w-full text-[11px] rounded-md border border-border bg-background px-2.5 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60"
                           rows={2}
-                          placeholder={lang === "ru" ? "Например: сделай больший акцент на ритме..." : lang === "ua" ? "Наприклад: зроби більший акцент на ритмі..." : lang === "de" ? "Beispiel: Fokus mehr auf Rhythmus..." : "E.g. focus more on rhythm and sentence pacing..."}
+                          placeholder={lang === "ru" ? "Например: сделай больший акцент на ритме..." : "E.g. focus more on rhythm..."}
                           value={expandStylePrompt}
                           onChange={e => setExpandStylePrompt(e.target.value)}
                           data-testid="input-expand-style-prompt"
@@ -1637,30 +1617,108 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
                         <button
                           className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-40 transition-colors"
                           style={{ background: "linear-gradient(90deg, #F96D1C, #ff8c3a)", color: "white" }}
-                          onClick={expandStyle}
-                          disabled={expandingStyle}
-                          data-testid="button-expand-style"
-                        >
+                          onClick={expandStyle} disabled={expandingStyle} data-testid="button-expand-style">
                           {expandingStyle
-                            ? <><RefreshCw className="h-3 w-3 animate-spin" /> {lang === "ru" ? "Углубляю..." : lang === "ua" ? "Поглиблюю..." : lang === "de" ? "Vertiefe..." : "Deepening..."}</>
-                            : <><Sparkles className="h-3 w-3" /> {lang === "ru" ? "Углубить" : lang === "ua" ? "Поглибити" : lang === "de" ? "Vertiefen" : "Deepen"}</>}
+                            ? <><RefreshCw className="h-3 w-3 animate-spin" /> {lang === "ru" ? "Углубляю..." : "Deepening..."}</>
+                            : <><Sparkles className="h-3 w-3" /> {lang === "ru" ? "Углубить" : "Deepen"}</>}
                         </button>
                       </div>
                     )}
                   </div>
-
-                  <button
-                    className="w-full h-8 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:bg-accent/60 transition-colors"
-                    onClick={() => { setStyleAnalysis(null); setApplyStyle(false); setShowExpandStyle(false); }}
-                  >
+                  <button className="w-full h-8 rounded-lg text-[11px] font-medium border border-border text-muted-foreground hover:bg-accent/60 transition-colors"
+                    onClick={() => { setStyleAnalysis(null); setApplyStyle(false); setShowExpandStyle(false); }}>
                     {lang === "ru" ? "Сбросить анализ" : lang === "ua" ? "Скинути аналіз" : lang === "de" ? "Analyse zurücksetzen" : "Reset analysis"}
                   </button>
                 </div>
               )}
+              </div>
             </div>
           </ScrollArea>
         </TabsContent>
 
+        {/* ─── КОРРЕКТНОСТЬ ─── */}
+        <TabsContent value="correctness" className="flex-1 overflow-hidden m-0 mt-0">
+          <ScrollArea className="h-full">
+            <div className="p-3 space-y-3">
+
+              {/* Header with Fix All button */}
+              {spellMatches.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                        {lang === "ru" ? "Ошибки" : lang === "ua" ? "Помилки" : lang === "de" ? "Fehler" : "Errors"}
+                      </span>
+                      <span className="flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.5 min-w-[1.25rem]"
+                        style={{ background: "#ef4444" }}>
+                        {spellMatches.length}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent("moodra:spell-fix-all"))}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-colors"
+                      style={{ background: "linear-gradient(90deg,#22c55e,#16a34a)" }}
+                    >
+                      <Zap className="h-3 w-3" />
+                      {lang === "ru" ? "Исправить все" : lang === "ua" ? "Виправити всі" : lang === "de" ? "Alle beheben" : "Fix all"}
+                    </button>
+                  </div>
+
+                  {/* Error list */}
+                  <div className="divide-y divide-border/30 border border-border/40 rounded-xl overflow-hidden bg-background/70">
+                    {spellMatches.map((match: any, idx: number) => {
+                      const errWord = match.context.text.slice(match.context.offset, match.context.offset + match.context.length);
+                      return (
+                        <div
+                          key={idx}
+                          className="px-3 py-2.5 flex items-start gap-2 group hover:bg-muted/30 transition-colors cursor-pointer"
+                          onClick={() => window.dispatchEvent(new CustomEvent("moodra:spell-navigate", { detail: { blockId: "focused" } }))}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                              <span className="text-[12px] font-semibold text-red-500 line-through">{errWord}</span>
+                              {match.replacements.slice(0, 3).map((r: any, ri: number) => (
+                                <button
+                                  key={ri}
+                                  onClick={ev => { ev.stopPropagation(); window.dispatchEvent(new CustomEvent("moodra:spell-fix-one", { detail: { match, replacement: r.value } })); }}
+                                  className="text-[12px] font-semibold text-primary hover:underline px-1.5 py-0.5 rounded-lg hover:bg-primary/10 transition-colors"
+                                >
+                                  {r.value}
+                                </button>
+                              ))}
+                              <button
+                                title={lang === "ru" ? "Перейти к ошибке" : "Go to error"}
+                                onClick={ev => { ev.stopPropagation(); window.dispatchEvent(new CustomEvent("moodra:spell-navigate", { detail: { blockId: "focused" } })); }}
+                                className="ml-auto text-muted-foreground/40 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <Navigation className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/60 leading-snug truncate">{match.message}</div>
+                          </div>
+                          <button
+                            title={lang === "ru" ? "Игнорировать" : "Ignore"}
+                            onClick={ev => { ev.stopPropagation(); window.dispatchEvent(new CustomEvent("moodra:spell-ignore", { detail: { ruleId: match.rule.id } })); }}
+                            className="text-muted-foreground/30 hover:text-muted-foreground transition-colors text-[18px] leading-none mt-0.5 flex-shrink-0"
+                          >×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <CheckCircle2 className="h-10 w-10 text-green-500 mb-3" />
+                  <p className="text-sm font-semibold">{lang === "ru" ? "Ошибок не найдено" : lang === "ua" ? "Помилок не знайдено" : lang === "de" ? "Keine Fehler" : "No errors found"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 leading-snug max-w-[180px]">
+                    {lang === "ru" ? "Включите умный режим проверки (ABC→Smart) чтобы видеть ошибки здесь" : lang === "ua" ? "Увімкніть розумний режим перевірки" : lang === "de" ? "Aktivieren Sie den Smart-Modus" : "Enable Smart spell-check mode to see errors here"}
+                  </p>
+                </div>
+              )}
+
+            </div>
+          </ScrollArea>
+        </TabsContent>
         {/* ─── АГЕНТЫ ─── */}
         <TabsContent value="agents" className="flex-1 overflow-hidden m-0 mt-0">
           <ScrollArea className="h-full">
