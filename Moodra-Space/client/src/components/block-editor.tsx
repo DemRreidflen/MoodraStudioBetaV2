@@ -1115,6 +1115,10 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   const updateBlockContent = (id: string, content: string) => {
     if (hideControls) return;
     updateBlocks(blocks.map(b => b.id === id ? { ...b, content } : b));
+    // Re-run spell check as user types so autocorrect matches stay current
+    if (spellCheck.mode === "smart" && id === focusedBlockId) {
+      spellCheck.check(content);
+    }
   };
 
   const splitBlock = (id: string, index: number, beforeContent: string, afterContent: string, indentLevel = 0) => {

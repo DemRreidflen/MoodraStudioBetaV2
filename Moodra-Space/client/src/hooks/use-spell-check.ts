@@ -65,7 +65,7 @@ export function useSpellCheck() {
         } finally {
           setIsChecking(false);
         }
-      }, 600);
+      }, 300);
     },
     [settings.lang, ignoredRules]
   );
