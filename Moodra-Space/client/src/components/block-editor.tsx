@@ -1543,6 +1543,7 @@ function SortableBlock({
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
   const contentRef = useRef<HTMLDivElement>(null);
   const initializedElRef = useRef<HTMLElement | null>(null);
+  const pendingClickRef = useRef<{ x: number; y: number } | null>(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
 
   // Re-initialize innerHTML whenever the underlying DOM element changes.
@@ -1564,8 +1565,30 @@ function SortableBlock({
       if (document.activeElement !== contentRef.current) {
         contentRef.current.focus();
       }
-      // Check if there's a precise cursor target for this block (e.g. after merge)
-      if (cursorTarget?.current?.blockId === block.id) {
+      if (pendingClickRef.current) {
+        // Place cursor exactly where user clicked
+        const { x, y } = pendingClickRef.current;
+        pendingClickRef.current = null;
+        requestAnimationFrame(() => {
+          if (!contentRef.current) return;
+          let range: Range | null = null;
+          if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(x, y);
+          } else {
+            const pos = (document as any).caretPositionFromPoint?.(x, y);
+            if (pos) {
+              range = document.createRange();
+              range.setStart(pos.offsetNode, pos.offset);
+              range.collapse(true);
+            }
+          }
+          if (range && contentRef.current.contains(range.startContainer)) {
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          }
+        });
+      } else if (cursorTarget?.current?.blockId === block.id) {
         const offset = cursorTarget.current.offset;
         cursorTarget.current = null;
         requestAnimationFrame(() => {
@@ -1842,14 +1865,21 @@ function SortableBlock({
           </div>
         )}
 
-        <div className="relative" style={{ textAlign: block.metadata?.align || undefined }}>
+        <div
+          className="relative"
+          style={{ textAlign: block.metadata?.align || undefined }}
+          onMouseDown={!isFocused && !hideControls ? (e) => {
+            pendingClickRef.current = { x: e.clientX, y: e.clientY };
+            onFocus();
+          } : undefined}
+        >
           {block.type === "divider" ? (
             <div className="py-4">
               <hr className="border-t border-border" />
             </div>
           ) : (
             <>
-              {renderBlockContent(block, contentRef, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata, spellCheckMode, spellLangAttr)}
+              {renderBlockContent(block, contentRef, isFocused, onFocus, handleKeyDown, handleInput, handleBlur, handlePaste, hideControls, s, firstLineIndent, listIndex, onUpdateMetadata, spellCheckMode, spellLangAttr)}
               {!block.content && !isFocused && !hideControls && (
                 <div className="absolute top-0 left-0 text-muted-foreground/30 pointer-events-none italic">
                   {s.placeholder}
@@ -1957,6 +1987,7 @@ function SortableBlock({
 function renderBlockContent(
   block: Block,
   ref: React.RefObject<HTMLDivElement>,
+  isFocused: boolean,
   onFocus: () => void,
   onKeyDown: (e: React.KeyboardEvent) => void,
   onInput: (e: React.FormEvent<HTMLDivElement>) => void,
@@ -1971,19 +2002,20 @@ function renderBlockContent(
   spellLangAttr?: string,
 ) {
   const i = s || BLOCK_EDITOR_I18N.en;
+  const editable = !hideControls && isFocused;
   const nativeSpellCheck = spellCheckMode === "basic" || spellCheckMode === "smart";
   const commonProps = {
     ref,
-    contentEditable: !hideControls,
-    onFocus,
-    onKeyDown,
-    onInput,
-    onBlur,
-    onPaste,
+    contentEditable: editable as boolean,
+    onFocus: editable ? onFocus : undefined,
+    onKeyDown: editable ? onKeyDown : undefined,
+    onInput: editable ? onInput : undefined,
+    onBlur: editable ? onBlur : undefined,
+    onPaste: editable ? onPaste : undefined,
     suppressContentEditableWarning: true,
-    spellCheck: hideControls ? false : nativeSpellCheck,
-    lang: nativeSpellCheck && spellLangAttr && spellLangAttr !== "auto" ? spellLangAttr : undefined,
-    className: cn("outline-none w-full", hideControls && "cursor-default"),
+    spellCheck: editable ? nativeSpellCheck : false,
+    lang: editable && nativeSpellCheck && spellLangAttr && spellLangAttr !== "auto" ? spellLangAttr : undefined,
+    className: cn("outline-none w-full", !editable && "cursor-text select-text"),
     "data-testid": `block-content-${block.type}-${block.id}`,
   };
 
