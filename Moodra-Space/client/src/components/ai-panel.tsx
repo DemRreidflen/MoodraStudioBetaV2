@@ -13,7 +13,7 @@ import {
   Copy, Check, RefreshCw, BookOpen, Telescope, FileSearch,
   Scan, ToggleLeft, ToggleRight, Square, ChevronDown, ChevronUp, ChevronRight,
   Users, Scale, Link2, Save, BookMarked, BarChart2, Clock, AlertTriangle,
-  Loader2, UserSearch, Upload, FileText, CheckCircle2, Zap, Navigation
+  Loader2, UserSearch, Upload, FileText, CheckCircle2, Navigation
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -1641,27 +1641,17 @@ export function AiPanel({ book, chapter, context, chapters = [], onInsert }: Pro
           <ScrollArea className="h-full">
             <div className="p-3 space-y-3">
 
-              {/* Header with Fix All button */}
+              {/* Header */}
               {spellMatches.length > 0 ? (
                 <>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                        {lang === "ru" ? "Ошибки" : lang === "ua" ? "Помилки" : lang === "de" ? "Fehler" : "Errors"}
-                      </span>
-                      <span className="flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.5 min-w-[1.25rem]"
-                        style={{ background: "#ef4444" }}>
-                        {spellMatches.length}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => window.dispatchEvent(new CustomEvent("moodra:spell-fix-all"))}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white transition-colors"
-                      style={{ background: "linear-gradient(90deg,#22c55e,#16a34a)" }}
-                    >
-                      <Zap className="h-3 w-3" />
-                      {lang === "ru" ? "Исправить все" : lang === "ua" ? "Виправити всі" : lang === "de" ? "Alle beheben" : "Fix all"}
-                    </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                      {lang === "ru" ? "Ошибки" : lang === "ua" ? "Помилки" : lang === "de" ? "Fehler" : "Errors"}
+                    </span>
+                    <span className="flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.5 min-w-[1.25rem]"
+                      style={{ background: "#ef4444" }}>
+                      {spellMatches.length}
+                    </span>
                   </div>
 
                   {/* Error list */}
