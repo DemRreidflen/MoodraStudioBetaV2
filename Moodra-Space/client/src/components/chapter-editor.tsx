@@ -849,7 +849,28 @@ export function ChapterEditor({
           }
         } catch { /* DOM nodes may have changed, fall through */ }
 
-        const genId = () => Math.random().toString(36).substring(2, 11);
+        // Helper: distribute text words proportionally to given length hints
+        const distributeTextProportionally = (text: string, lengths: number[]): string[] => {
+          const words = text.trim().split(/\s+/).filter(Boolean);
+          if (!words.length) return lengths.map(() => "");
+          const totalLen = lengths.reduce((s, l) => s + l, 0) || 1;
+          const chunks: string[] = [];
+          let wi = 0;
+          for (let i = 0; i < lengths.length; i++) {
+            if (i === lengths.length - 1) {
+              chunks.push(words.slice(wi).join(" "));
+            } else {
+              const count = Math.max(1, Math.round((lengths[i] / totalLen) * words.length));
+              const safe = Math.min(wi + count, words.length - (lengths.length - i - 1));
+              chunks.push(words.slice(wi, safe).join(" "));
+              wi = safe;
+            }
+          }
+          return chunks;
+        };
+
+        const stripHtml = (html: string) => (html || "").replace(/<[^>]*>/g, "");
+
         const improvedParagraphs = improved.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
         if (!improvedParagraphs.length) improvedParagraphs.push(improved.trim() || " ");
 
@@ -858,21 +879,45 @@ export function ChapterEditor({
           const endIdx = prev.findIndex(b => b.id === endBlockId);
           if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) return prev;
 
-          const startBlock = prev[startIdx];
-          const blockType = startBlock?.type || "paragraph";
+          const selectedBlocks = prev.slice(startIdx, endIdx + 1);
+          const numBlocks = selectedBlocks.length;
 
-          const newBlocks: typeof prev = [];
-          if (improvedParagraphs.length === 1) {
-            const combined = [prefixText, improvedParagraphs[0], suffixText].filter(Boolean).join(" ");
-            newBlocks.push({ ...startBlock, content: combined });
+          // Build text chunks — one per original block
+          let chunks: string[];
+          if (improvedParagraphs.length >= numBlocks) {
+            // Enough paragraph breaks: map 1:1, merge extras into last
+            chunks = [
+              ...improvedParagraphs.slice(0, numBlocks - 1),
+              improvedParagraphs.slice(numBlocks - 1).join(" "),
+            ];
+          } else if (improvedParagraphs.length > 1) {
+            // Some breaks but fewer than blocks: distribute paragraphs across blocks
+            const paraLengths = Array.from({ length: numBlocks }, (_, i) =>
+              Math.round((i / numBlocks) * improvedParagraphs.length) !==
+              Math.round(((i + 1) / numBlocks) * improvedParagraphs.length)
+                ? 1 : 0
+            );
+            chunks = distributeTextProportionally(improvedParagraphs.join(" "), paraLengths.map((_, i) =>
+              stripHtml(selectedBlocks[i].content || "").length || 1
+            ));
           } else {
-            newBlocks.push({ ...startBlock, content: [prefixText, improvedParagraphs[0]].filter(Boolean).join(" ") });
-            for (let i = 1; i < improvedParagraphs.length - 1; i++) {
-              newBlocks.push({ id: genId(), type: blockType as any, content: improvedParagraphs[i] });
-            }
-            const lastChunk = improvedParagraphs[improvedParagraphs.length - 1];
-            newBlocks.push({ id: genId(), type: blockType as any, content: [lastChunk, suffixText].filter(Boolean).join(" ") });
+            // Single paragraph: distribute words proportionally across original blocks
+            const selectedLengths = selectedBlocks.map((b, i) => {
+              const plain = stripHtml(b.content || "");
+              if (i === 0) return Math.max(1, plain.length - prefixText.length);
+              if (i === numBlocks - 1) return Math.max(1, plain.length - suffixText.length);
+              return Math.max(1, plain.length);
+            });
+            chunks = distributeTextProportionally(improvedParagraphs[0], selectedLengths);
           }
+
+          // Assemble new blocks preserving original block types
+          const newBlocks = selectedBlocks.map((b, i) => {
+            let content = chunks[i] || "";
+            if (i === 0 && prefixText) content = prefixText.trimEnd() + " " + content.trimStart();
+            if (i === numBlocks - 1 && suffixText) content = content.trimEnd() + " " + suffixText.trimStart();
+            return { ...b, content: content.trim() };
+          });
 
           const updated = [...prev.slice(0, startIdx), ...newBlocks, ...prev.slice(endIdx + 1)];
           return updated;

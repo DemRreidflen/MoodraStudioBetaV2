@@ -779,8 +779,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   const [lineSpacing, setLineSpacing] = useState("1.625");
   const containerRef = useRef<HTMLDivElement>(null);
   const cursorTargetRef = useRef<{ blockId: string; offset: number } | null>(null);
-  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
-  const selectAnchorRef = useRef<string | null>(null);
   const { isFreeMode } = useFreeMode();
   const { lang } = useLang();
   const s = BLOCK_EDITOR_I18N[lang] || BLOCK_EDITOR_I18N.en;
@@ -1145,36 +1143,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
     return () => window.removeEventListener("moodra:spell-navigate", handler);
   }, []);
 
-  // Multi-block selection: Escape to clear
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectedBlockIds.size > 0) {
-        setSelectedBlockIds(new Set());
-        selectAnchorRef.current = null;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [selectedBlockIds]);
-
-  const handleBlockSelect = useCallback((blockId: string, shiftKey: boolean) => {
-    setSelectedBlockIds(prev => {
-      if (shiftKey && selectAnchorRef.current) {
-        const anchorIdx = blocks.findIndex(b => b.id === selectAnchorRef.current);
-        const clickIdx = blocks.findIndex(b => b.id === blockId);
-        if (anchorIdx !== -1 && clickIdx !== -1) {
-          const [from, to] = anchorIdx <= clickIdx ? [anchorIdx, clickIdx] : [clickIdx, anchorIdx];
-          return new Set(blocks.slice(from, to + 1).map(b => b.id));
-        }
-      }
-      selectAnchorRef.current = blockId;
-      const next = new Set(prev);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
-      return next;
-    });
-  }, [blocks]);
-
   // Refs to capture latest values for stable event handlers
   const latestFixAll = useRef<() => void>(() => {});
   useEffect(() => {
@@ -1437,8 +1405,6 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
                   listIndex={listIndex}
                   spellCheckMode={spellCheck.mode}
                   spellLangAttr={spellCheck.lang !== "auto" ? spellCheck.lang : undefined}
-                  isSelected={selectedBlockIds.has(block.id)}
-                  onSelect={(shiftKey) => handleBlockSelect(block.id, shiftKey)}
                 />
               );
             })}
@@ -1468,8 +1434,6 @@ interface SortableBlockProps {
   listIndex?: number;
   spellCheckMode?: SpellCheckMode;
   spellLangAttr?: string;
-  isSelected?: boolean;
-  onSelect?: (shiftKey: boolean) => void;
 }
 
 function placeCaretAtTextOffset(el: HTMLElement, targetOffset: number) {
@@ -1522,8 +1486,6 @@ function SortableBlock({
   listIndex,
   spellCheckMode,
   spellLangAttr,
-  isSelected,
-  onSelect,
 }: SortableBlockProps) {
   const {
     attributes,
@@ -1756,8 +1718,7 @@ function SortableBlock({
       className={cn(
         "group relative flex items-start gap-2 py-1 px-2 rounded-md transition-colors",
         isDragging ? "bg-accent/50 opacity-50" : (!hideControls && "hover:bg-accent/5"),
-        isFocused && !isSelected && "bg-accent/5",
-        isSelected && "bg-primary/10 ring-1 ring-primary/30",
+        isFocused && "bg-accent/5",
         hideControls && "py-0 px-0 hover:bg-transparent",
         indentLevel > 0 && "border-l-2 border-border/50 pl-3"
       )}
@@ -1765,21 +1726,9 @@ function SortableBlock({
       {/* Left controls */}
       {!hideControls && (
         <div className={cn(
-          "flex items-center gap-1 transition-opacity absolute -left-16 top-2 h-6",
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          "flex items-center gap-1 transition-opacity absolute -left-12 top-2 h-6",
+          "opacity-0 group-hover:opacity-100"
         )}>
-          <button
-            onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onSelect?.(e.shiftKey); }}
-            className={cn(
-              "p-1 rounded hover:bg-accent transition-colors",
-              isSelected ? "text-primary" : "text-muted-foreground/50 hover:text-muted-foreground"
-            )}
-            title="Select block"
-          >
-            {isSelected
-              ? <CheckSquare className="w-3.5 h-3.5" />
-              : <Square className="w-3.5 h-3.5" />}
-          </button>
           <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded">
             <GripVertical className="w-4 h-4 text-muted-foreground" />
           </div>

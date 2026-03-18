@@ -139,11 +139,14 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     ) return null;
 
     const toolbarWidth = 500;
-    // Center toolbar over the first line of the selection
+    // Center toolbar horizontally over the first line of the selection
     let left = firstRect.left + firstRect.width / 2 - toolbarWidth / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - toolbarWidth - 8));
-    // Show above the first line, clamped so it doesn't go off-screen top
-    const top = Math.max(8, firstRect.top - 54);
+    // Vertical: show above first line when visible, else float at screen midpoint
+    const naturalTop = firstRect.top - 54;
+    const top = naturalTop < 60
+      ? Math.round(window.innerHeight * 0.45)
+      : Math.min(naturalTop, window.innerHeight - 80);
     return { top, left };
   }, [containerRef]);
 
