@@ -252,7 +252,7 @@ const LINE_SPACINGS = [
   { value: "2.5",   label: "2.5" },
 ];
 
-function FormatToolbar({
+export function FormatToolbar({
   visible,
   lineSpacing,
   onLineSpacingChange,
@@ -2158,8 +2158,13 @@ export function blocksToFullHTML(blocks: Block[]): string {
       const listType = block.type;
       const tag = listType === "bullet_item" ? "ul" : "ol";
       const cls = listType === "bullet_item" ? "fte-ul" : "fte-ol";
+      const currentIndent = block.metadata?.indentLevel ?? 0;
       const items: Block[] = [];
-      while (i < blocks.length && blocks[i].type === listType) {
+      while (
+        i < blocks.length &&
+        blocks[i].type === listType &&
+        (blocks[i].metadata?.indentLevel ?? 0) === currentIndent
+      ) {
         items.push(blocks[i++]);
       }
       const lis = items.map(b => {
@@ -2249,11 +2254,12 @@ interface FullTextEditorProps {
   firstLineIndent?: number;
 }
 
-export function FullTextEditor({ blocks, onChange, lineSpacing }: FullTextEditorProps) {
+export function FullTextEditor({ blocks, onChange, lineSpacing: lineSpacingProp }: FullTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isInitializedRef = useRef(false);
+  const [lineSpacing, setLineSpacing] = useState(lineSpacingProp || "1.7");
 
   useLayoutEffect(() => {
     if (!editorRef.current || isInitializedRef.current) return;
@@ -2324,11 +2330,16 @@ export function FullTextEditor({ blocks, onChange, lineSpacing }: FullTextEditor
   }, [handleInput]);
 
   return (
-    <>
+    <div className="flex flex-col">
       <style>{FULLTEXT_STYLE}</style>
+      <FormatToolbar
+        visible={true}
+        lineSpacing={lineSpacing}
+        onLineSpacingChange={setLineSpacing}
+      />
       <div
         className="fte-wrapper"
-        style={{ "--fte-line-height": lineSpacing || "1.7" } as React.CSSProperties}
+        style={{ "--fte-line-height": lineSpacing } as React.CSSProperties}
       >
         <div
           ref={editorRef}
@@ -2340,6 +2351,6 @@ export function FullTextEditor({ blocks, onChange, lineSpacing }: FullTextEditor
           spellCheck={false}
         />
       </div>
-    </>
+    </div>
   );
 }
