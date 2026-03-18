@@ -2794,6 +2794,49 @@ window.addEventListener('load', function() {
     res.send(html);
   });
 
+  app.post("/api/grammar/fix", async (req, res) => {
+    try {
+      const { text, language } = req.body as { text: string; language?: string };
+      if (!text) return res.status(400).json({ error: "Missing text" });
+      if (text.length > 8000) return res.status(400).json({ error: "Text too long (max 8000 chars)" });
+
+      const params = new URLSearchParams({
+        text,
+        language: language || "auto",
+        enabledOnly: "false",
+      });
+      const ltRes = await fetch("https://api.languagetool.org/v2/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "User-Agent": "Moodra-SpellCheck/1.0",
+        },
+        body: params.toString(),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!ltRes.ok) return res.status(502).json({ error: "LanguageTool unavailable" });
+
+      const data = (await ltRes.json()) as {
+        matches?: { offset: number; length: number; replacements: { value: string }[] }[];
+      };
+      const matches = (data.matches || []).filter(m => m.replacements?.length > 0);
+
+      // Apply fixes in reverse order so earlier offsets stay valid
+      let improved = text;
+      const sorted = [...matches].sort((a, b) => b.offset - a.offset);
+      for (const m of sorted) {
+        const best = m.replacements[0].value;
+        improved = improved.slice(0, m.offset) + best + improved.slice(m.offset + m.length);
+      }
+
+      return res.json({ original: text, improved });
+    } catch (e: any) {
+      if (e?.name === "TimeoutError") return res.status(504).json({ error: "LanguageTool timeout" });
+      return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
   app.post("/api/text-check", async (req, res) => {
     try {
       const { text, language } = req.body as { text: string; language: string };
