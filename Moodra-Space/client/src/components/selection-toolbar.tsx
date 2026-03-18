@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Wand2, RefreshCw, Minimize2, ArrowUpRight, Globe, SpellCheck, Loader2, ChevronDown, Key, X, Zap } from "lucide-react";
+import { Wand2, RefreshCw, Minimize2, ArrowUpRight, Globe, SpellCheck, Loader2, ChevronDown, Key, X, Zap, Pilcrow } from "lucide-react";
 import { useLang } from "@/contexts/language-context";
 import { useFreeMode } from "@/hooks/use-free-mode";
 import { useLocation } from "wouter";
@@ -27,6 +27,7 @@ const I18N = {
     translate: "Translate",
     adaptTone: "Adapt tone",
     fixGrammar: "Fix grammar",
+    paragraphs: "Paragraphs",
     customInstruction: "Instruction (optional)…",
     run: "Run",
     cancel: "Cancel",
@@ -43,6 +44,7 @@ const I18N = {
     translate: "Перевести",
     adaptTone: "Изменить тон",
     fixGrammar: "Исправить грамматику",
+    paragraphs: "Абзацы",
     customInstruction: "Инструкция (необязательно)…",
     run: "Запустить",
     cancel: "Отмена",
@@ -59,6 +61,7 @@ const I18N = {
     translate: "Перекласти",
     adaptTone: "Змінити тон",
     fixGrammar: "Виправити граматику",
+    paragraphs: "Абзаци",
     customInstruction: "Інструкція (необов'язково)…",
     run: "Запустити",
     cancel: "Скасувати",
@@ -75,6 +78,7 @@ const I18N = {
     translate: "Übersetzen",
     adaptTone: "Ton anpassen",
     fixGrammar: "Grammatik korrigieren",
+    paragraphs: "Absätze",
     customInstruction: "Anweisung (optional)…",
     run: "Ausführen",
     cancel: "Abbrechen",
@@ -119,6 +123,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
     { mode: "expand",     label: s.expand,     icon: ArrowUpRight,color: "#F59E0B" },
     { mode: "translate",  label: s.translate,  icon: Globe,       color: "#A78BFA" },
     { mode: "fix-grammar",label: s.fixGrammar, icon: SpellCheck,  color: "#6EE7B7" },
+    { mode: "paragraphs", label: s.paragraphs, icon: Pilcrow,     color: "#FB923C" },
   ];
 
   // Compute toolbar position from the current selection range
@@ -138,7 +143,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       firstRect.right > containerRect.right + 20
     ) return null;
 
-    const toolbarWidth = 500;
+    const toolbarWidth = 580;
     // Center toolbar horizontally over the first line of the selection
     let left = firstRect.left + firstRect.width / 2 - toolbarWidth / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - toolbarWidth - 8));

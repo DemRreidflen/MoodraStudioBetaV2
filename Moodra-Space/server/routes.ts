@@ -1105,6 +1105,7 @@ ${existing ? "Не дублируй уже имеющиеся источники
         strengthen:   "Strengthen the argument and emotional impact of this text. Make it more powerful, convincing, and memorable.",
         fix:          "Fix all grammar, spelling, punctuation, and style errors in this text. Preserve the author's voice and meaning.",
         "fix-grammar":"Fix all grammar, spelling, punctuation, and style errors in this text. Preserve the author's voice and meaning.",
+        "paragraphs": "Split this text into well-structured paragraphs. Each paragraph should develop one clear idea and flow naturally into the next. Separate every paragraph with a blank line. Preserve all content and wording exactly — only add or adjust paragraph breaks, do not change the words themselves.",
         "adapt-tone": "Adapt the tone of this text as instructed. Keep the meaning intact while shifting the register, voice, or emotional quality.",
         translate:    targetLang ? `Translate this text into ${targetLang}. Keep the meaning, tone, and style as close to the original as possible.` : "Translate this text into English. Keep the meaning, tone, and style as close to the original as possible.",
         format:       "Format and restructure this text according to the user's formatting instructions. Preserve all content and meaning.",
