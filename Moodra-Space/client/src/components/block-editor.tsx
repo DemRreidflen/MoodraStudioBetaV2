@@ -787,6 +787,13 @@ export function BlockEditor({ initialContent, onChange, hideControls, hideFormat
   const spellCheck = useSpellCheck();
   const { toast } = useToast();
 
+  // Auto-focus the first block when editor mounts with an empty chapter
+  useEffect(() => {
+    if (!hideControls && blocks.length === 1 && !blocks[0].content) {
+      setFocusedBlockId(blocks[0].id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Expose imperative API to parent via onMounted callback
   const onMountedRef = useRef(onMounted);
   onMountedRef.current = onMounted;

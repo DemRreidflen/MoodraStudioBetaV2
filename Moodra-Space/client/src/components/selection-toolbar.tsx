@@ -93,7 +93,7 @@ interface Props {
   containerRef: React.RefObject<HTMLElement>;
   bookTitle?: string;
   bookMode?: string;
-  onResult: (original: string, improved: string, mode: string, savedRange: Range | null) => void;
+  onResult: (original: string, improved: string, mode: string, savedRange: Range | null, blockIds: { startId: string; endId: string } | null) => void;
 }
 
 export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }: Props) {
@@ -114,6 +114,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
   // Always-current copies (avoid stale closures)
   const selectedTextRef = useRef("");
   const savedRangeRef = useRef<Range | null>(null);
+  const savedBlockIdsRef = useRef<{ startId: string; endId: string } | null>(null);
   const isMouseDownOnToolbar = useRef(false);
 
   const ACTIONS = [
@@ -179,6 +180,21 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
 
     selectedTextRef.current = text;
     savedRangeRef.current = range.cloneRange();
+    // Capture block IDs immediately (before DOM can go stale)
+    const getBlockId = (node: Node): string => {
+      let cur: Node | null = node;
+      while (cur) {
+        if (cur instanceof HTMLElement) {
+          const id = cur.getAttribute("data-block-id");
+          if (id) return id;
+        }
+        cur = cur.parentNode;
+      }
+      return "";
+    };
+    const startId = getBlockId(range.startContainer);
+    const endId   = getBlockId(range.endContainer);
+    savedBlockIdsRef.current = startId ? { startId, endId: endId || startId } : null;
     setPosition(pos);
     setVisible(true);
     setShowNoApi(false);
@@ -251,7 +267,7 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "error");
-      onResult(text, data.improved || "", mode, savedRangeRef.current);
+      onResult(text, data.improved || "", mode, savedRangeRef.current, savedBlockIdsRef.current);
       setVisible(false);
     } catch {
     } finally {

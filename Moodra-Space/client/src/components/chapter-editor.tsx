@@ -493,6 +493,8 @@ export function ChapterEditor({
     improved: string;
     mode?: string;
     savedRange?: Range | null;
+    startBlockId?: string;
+    endBlockId?: string;
   } | null>(null);
   const [lastMode, setLastMode] = useState<string>("improve");
   const [customInstruction, setCustomInstruction] = useState("");
@@ -808,20 +810,11 @@ export function ChapterEditor({
 
   const handleApplyImprovement = () => {
     if (!improvementModal) return;
-    const { original, improved, mode, savedRange } = improvementModal;
+    const { original, improved, mode, savedRange, startBlockId, endBlockId } = improvementModal;
 
     // Shared helpers
     const genId = () => Math.random().toString(36).substring(2, 11);
     const stripHtml = (html: string) => (html || "").replace(/<[^>]*>/g, "");
-
-    const findBlockEl = (node: Node | null): HTMLElement | null => {
-      let cur: Node | null = node;
-      while (cur) {
-        if (cur instanceof HTMLElement && cur.getAttribute("data-block-id")) return cur;
-        cur = cur.parentNode;
-      }
-      return null;
-    };
 
     // Split AI response into paragraphs (prefer \n\n, fall back to \n)
     let improvedParagraphs = improved.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
@@ -878,17 +871,15 @@ export function ChapterEditor({
     });
 
     // ── CROSS-BLOCK selection ──────────────────────────────────────────────
-    if (savedRange) {
-      const startBlockEl = findBlockEl(savedRange.startContainer);
-      const endBlockEl   = findBlockEl(savedRange.endContainer);
+    // Use block IDs saved at selection time (reliable, never stale)
+    if (startBlockId && endBlockId && startBlockId !== endBlockId) {
+      const startBlockEl = document.querySelector(`[data-block-id="${startBlockId}"]`) as HTMLElement | null;
+      const endBlockEl   = document.querySelector(`[data-block-id="${endBlockId}"]`) as HTMLElement | null;
 
-      if (startBlockEl && endBlockEl && startBlockEl !== endBlockEl) {
-        const startBlockId = startBlockEl.getAttribute("data-block-id")!;
-        const endBlockId   = endBlockEl.getAttribute("data-block-id")!;
-
-        const startContentEl = startBlockEl.querySelector("[data-testid^='block-content-']") as HTMLElement | null;
-        const endContentEl   = endBlockEl.querySelector("[data-testid^='block-content-']") as HTMLElement | null;
-        let prefixText = "", suffixText = "";
+      const startContentEl = startBlockEl?.querySelector("[data-testid^='block-content-']") as HTMLElement | null;
+      const endContentEl   = endBlockEl?.querySelector("[data-testid^='block-content-']") as HTMLElement | null;
+      let prefixText = "", suffixText = "";
+      if (savedRange) {
         try {
           if (startContentEl) {
             const pr = document.createRange();
@@ -903,92 +894,91 @@ export function ChapterEditor({
             suffixText = sr.toString();
           }
         } catch {}
+      }
 
-        // "paragraphs" mode: immediately splice into block-editor's own state
-        // (so visual update is instant, without needing a page reload)
-        if (mode === "paragraphs" && improvedParagraphs.length > 1) {
-          const anchorBlock = blockInfoFromEl(startBlockEl);
-          const newBlocksArr = buildNewBlocks(improvedParagraphs, anchorBlock, prefixText, suffixText);
-          blockEditorApiRef.current?.spliceBlocks(startBlockId, endBlockId, newBlocksArr);
-          setImprovementModal(null);
-          setCustomInstruction("");
-          return;
-        }
-
-        // Other modes: distribute text to preserve original block count
-        const distributeTextProportionally = (text: string, lengths: number[]): string[] => {
-          const words = text.trim().split(/\s+/).filter(Boolean);
-          if (!words.length) return lengths.map(() => "");
-          const totalLen = lengths.reduce((s, l) => s + l, 0) || 1;
-          const chunks: string[] = [];
-          let wi = 0;
-          for (let i = 0; i < lengths.length; i++) {
-            if (i === lengths.length - 1) {
-              chunks.push(words.slice(wi).join(" "));
-            } else {
-              const count = Math.max(1, Math.round((lengths[i] / totalLen) * words.length));
-              const safe = Math.min(wi + count, words.length - (lengths.length - i - 1));
-              chunks.push(words.slice(wi, safe).join(" "));
-              wi = safe;
-            }
-          }
-          return chunks;
-        };
-
-        const selectedBlocksFromState = blocks.filter((b, i) => {
-          const startIdx = blocks.findIndex(bl => bl.id === startBlockId);
-          const endIdx   = blocks.findIndex(bl => bl.id === endBlockId);
-          return i >= startIdx && i <= endIdx;
-        });
-        const numBlocks = selectedBlocksFromState.length;
-
-        let chunks: string[];
-        if (improvedParagraphs.length >= numBlocks) {
-          chunks = [
-            ...improvedParagraphs.slice(0, numBlocks - 1),
-            improvedParagraphs.slice(numBlocks - 1).join(" "),
-          ];
-        } else if (improvedParagraphs.length > 1) {
-          chunks = distributeTextProportionally(
-            improvedParagraphs.join(" "),
-            selectedBlocksFromState.map(b => stripHtml(b.content || "").length || 1)
-          );
-        } else {
-          const selectedLengths = selectedBlocksFromState.map((b, i) => {
-            const plain = stripHtml(b.content || "");
-            if (i === 0) return Math.max(1, plain.length - prefixText.length);
-            if (i === numBlocks - 1) return Math.max(1, plain.length - suffixText.length);
-            return Math.max(1, plain.length);
-          });
-          chunks = distributeTextProportionally(improvedParagraphs[0], selectedLengths);
-        }
-
-        const newBlocksArr = selectedBlocksFromState.map((b, i) => {
-          let content = chunks[i] || "";
-          if (i === 0 && prefixText) content = prefixText.trimEnd() + " " + content.trimStart();
-          if (i === numBlocks - 1 && suffixText) content = content.trimEnd() + " " + suffixText.trimStart();
-          return { ...b, content: content.trim() };
-        });
-
+      // "paragraphs" mode: create one block per paragraph
+      if (mode === "paragraphs" && improvedParagraphs.length > 1) {
+        const anchorBlock = startBlockEl ? blockInfoFromEl(startBlockEl) : { id: startBlockId, type: "paragraph" as any, content: "" };
+        const newBlocksArr = buildNewBlocks(improvedParagraphs, anchorBlock, prefixText, suffixText);
         blockEditorApiRef.current?.spliceBlocks(startBlockId, endBlockId, newBlocksArr);
         setImprovementModal(null);
         setCustomInstruction("");
         return;
       }
 
-      // ── SAME-BLOCK "paragraphs": split single block into multiple ─────────
-      if (mode === "paragraphs" && improvedParagraphs.length > 1) {
-        const blockEl = findBlockEl(savedRange.startContainer);
-        if (blockEl) {
-          const blockId = blockEl.getAttribute("data-block-id")!;
-          const { prefix, suffix } = getPrefixSuffix(savedRange, blockEl);
-          const block = blockInfoFromEl(blockEl);
-          const newBlocksArr = buildNewBlocks(improvedParagraphs, block, prefix, suffix);
-          blockEditorApiRef.current?.spliceBlocks(blockId, blockId, newBlocksArr);
-          setImprovementModal(null);
-          setCustomInstruction("");
-          return;
+      // Other modes: distribute text to preserve original block count
+      const distributeTextProportionally = (text: string, lengths: number[]): string[] => {
+        const words = text.trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return lengths.map(() => "");
+        const totalLen = lengths.reduce((s, l) => s + l, 0) || 1;
+        const chunks: string[] = [];
+        let wi = 0;
+        for (let i = 0; i < lengths.length; i++) {
+          if (i === lengths.length - 1) {
+            chunks.push(words.slice(wi).join(" "));
+          } else {
+            const count = Math.max(1, Math.round((lengths[i] / totalLen) * words.length));
+            const safe = Math.min(wi + count, words.length - (lengths.length - i - 1));
+            chunks.push(words.slice(wi, safe).join(" "));
+            wi = safe;
+          }
         }
+        return chunks;
+      };
+
+      const selectedBlocksFromState = blocks.filter((b, i) => {
+        const startIdx = blocks.findIndex(bl => bl.id === startBlockId);
+        const endIdx   = blocks.findIndex(bl => bl.id === endBlockId);
+        return i >= startIdx && i <= endIdx;
+      });
+      const numBlocks = Math.max(1, selectedBlocksFromState.length);
+
+      let chunks: string[];
+      if (improvedParagraphs.length >= numBlocks) {
+        chunks = [
+          ...improvedParagraphs.slice(0, numBlocks - 1),
+          improvedParagraphs.slice(numBlocks - 1).join(" "),
+        ];
+      } else if (improvedParagraphs.length > 1) {
+        chunks = distributeTextProportionally(
+          improvedParagraphs.join(" "),
+          selectedBlocksFromState.map(b => stripHtml(b.content || "").length || 1)
+        );
+      } else {
+        const selectedLengths = selectedBlocksFromState.map((b, i) => {
+          const plain = stripHtml(b.content || "");
+          if (i === 0) return Math.max(1, plain.length - prefixText.length);
+          if (i === numBlocks - 1) return Math.max(1, plain.length - suffixText.length);
+          return Math.max(1, plain.length);
+        });
+        chunks = distributeTextProportionally(improvedParagraphs[0], selectedLengths);
+      }
+
+      if (selectedBlocksFromState.length > 0) {
+        const newBlocksArr = selectedBlocksFromState.map((b, i) => {
+          let content = chunks[i] || "";
+          if (i === 0 && prefixText) content = prefixText.trimEnd() + " " + content.trimStart();
+          if (i === numBlocks - 1 && suffixText) content = content.trimEnd() + " " + suffixText.trimStart();
+          return { ...b, content: content.trim() };
+        });
+        blockEditorApiRef.current?.spliceBlocks(startBlockId, endBlockId, newBlocksArr);
+        setImprovementModal(null);
+        setCustomInstruction("");
+        return;
+      }
+    }
+
+    // ── SAME-BLOCK "paragraphs": split single block into multiple ─────────
+    if (mode === "paragraphs" && improvedParagraphs.length > 1 && startBlockId) {
+      const blockEl = document.querySelector(`[data-block-id="${startBlockId}"]`) as HTMLElement | null;
+      if (blockEl) {
+        const { prefix, suffix } = savedRange ? getPrefixSuffix(savedRange, blockEl) : { prefix: "", suffix: "" };
+        const block = blockInfoFromEl(blockEl);
+        const newBlocksArr = buildNewBlocks(improvedParagraphs, block, prefix, suffix);
+        blockEditorApiRef.current?.spliceBlocks(startBlockId, startBlockId, newBlocksArr);
+        setImprovementModal(null);
+        setCustomInstruction("");
+        return;
       }
     }
 
@@ -1093,9 +1083,9 @@ export function ChapterEditor({
     }
   };
 
-  const handleSelectionResult = useCallback((original: string, improved: string, mode: string, savedRange: Range | null) => {
+  const handleSelectionResult = useCallback((original: string, improved: string, mode: string, savedRange: Range | null, blockIds: { startId: string; endId: string } | null) => {
     setLastMode(mode);
-    setImprovementModal({ original, improved, mode, savedRange });
+    setImprovementModal({ original, improved, mode, savedRange, startBlockId: blockIds?.startId, endBlockId: blockIds?.endId });
   }, []);
 
   const handleAdaptLanguage = async (workflowOverride?: "new" | "existing") => {
