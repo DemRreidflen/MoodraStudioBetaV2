@@ -93,10 +93,11 @@ interface Props {
   containerRef: React.RefObject<HTMLElement>;
   bookTitle?: string;
   bookMode?: string;
+  bookId?: number;
   onResult: (original: string, improved: string, mode: string, savedRange: Range | null, blockIds: { startId: string; endId: string } | null) => void;
 }
 
-export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }: Props) {
+export function SelectionToolbar({ containerRef, bookTitle, bookMode, bookId, onResult }: Props) {
   const { lang } = useLang();
   const { isFreeMode } = useFreeMode();
   const [, navigate] = useLocation();
@@ -263,6 +264,10 @@ export function SelectionToolbar({ containerRef, bookTitle, bookMode, onResult }
           bookMode: bookMode || "fiction",
           customInstruction: extraParams?.customInstruction || "",
           targetLang: extraParams?.targetLang || "",
+          // Phase 3: author role model context
+          bookId: bookId != null ? String(bookId) : undefined,
+          useRoleModels: bookId != null,
+          selectedRoleModelIds: [],
         }),
       });
       const data = await resp.json();

@@ -1407,6 +1407,7 @@ export function ChapterEditor({
           containerRef={editorAreaRef as React.RefObject<HTMLElement>}
           bookTitle={bookTitle}
           bookMode={bookMode}
+          bookId={bookId}
           onResult={handleSelectionResult}
         />
       )}

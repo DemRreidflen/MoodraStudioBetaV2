@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema, insertAuthorRoleModelSchema } from "@shared/schema";
 import { assembleNoteContext, buildStructuredPrompt } from "./promptEngine";
-import { generateAndStoreEmbedding } from "./embeddings";
+import { generateAndStoreEmbedding, findRelevantModels, buildEmbeddingText } from "./embeddings";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
@@ -1102,8 +1102,12 @@ ${existing ? "Не дублируй уже имеющиеся источники
   // ---- AI Improve ----
   app.post("/api/ai/improve", async (req: Request, res: Response) => {
     try {
-      const { text, mode, style, bookTitle, bookMode, customInstruction, targetLang } = req.body;
-      
+      const {
+        text, mode, style, bookTitle, bookMode, customInstruction, targetLang,
+        // Phase 3: optional author role model context
+        bookId, useRoleModels, selectedRoleModelIds,
+      } = req.body;
+
       const langInstruction3 = getLangInstruction(req);
       const modeInstructions: Record<string, string> = {
         improve:      "Improve and enhance this text: make it clearer, more expressive, and more compelling. Preserve the author's voice and core meaning.",
@@ -1124,10 +1128,84 @@ ${existing ? "Не дублируй уже имеющиеся источники
       const modeInstruction = modeInstructions[mode] || modeInstructions.improve;
       const styleNote = style && style !== "original" ? ` Apply a ${style} style.` : "";
       const customNote = customInstruction ? ` Additional instruction: ${customInstruction}` : "";
-      const systemPrompt = `You are an expert editor and writer. ${modeInstruction}${styleNote}${customNote} Return ONLY the result, no preamble or explanation. IMPORTANT: If the input contains blank lines (double newlines) separating paragraphs, you MUST preserve those blank lines in the exact same positions in your output — do not merge paragraphs or remove the blank lines. ${langInstruction3}
-Context: Book "${bookTitle || ""}" (${bookMode === "fiction" ? "fiction" : "non-fiction"})`;
 
+      // getOpenAI is called early so it can be reused for embedding lookup below
       const ai = await getOpenAI(req);
+
+      // ── Role model style context (Phase 3) ──────────────────────────────────
+      // Only injected when the caller explicitly opts in via useRoleModels+bookId.
+      // Entire block is non-fatal: any failure falls back to no role model context.
+      let roleModelContext = "";
+      if (useRoleModels && bookId) {
+        try {
+          const numericBookId = parseInt(bookId, 10);
+          if (!isNaN(numericBookId)) {
+            const allModels = await storage.getAuthorRoleModels(numericBookId);
+            let candidates = allModels;
+
+            // Filter to requested IDs if provided; otherwise use all book models
+            if (Array.isArray(selectedRoleModelIds) && selectedRoleModelIds.length > 0) {
+              const idSet = new Set(selectedRoleModelIds.map(Number));
+              candidates = allModels.filter(m => idSet.has(m.id));
+            }
+
+            if (candidates.length > 0) {
+              // Rank by embedding similarity to the current text
+              // Models without embeddings fall to the end but are still included
+              const ranked = await findRelevantModels(ai, text, candidates);
+              const withEmbedding = ranked.map(r => r.model);
+              const withoutEmbedding = candidates.filter(
+                m => !ranked.find(r => r.model.id === m.id),
+              );
+              const ordered = [...withEmbedding, ...withoutEmbedding].slice(0, 3);
+
+              const trim = (s: string | null | undefined, max = 350) =>
+                s?.trim() ? s.trim().slice(0, max) : "";
+
+              const sections = ordered.map(m => {
+                const label = [m.name, m.authorName].filter(Boolean).join(" — ");
+                const influence = m.influencePercent ? ` (${m.influencePercent}% influence)` : "";
+                const fields = [
+                  trim(m.conceptualTendencies) && `Conceptual tendencies: ${trim(m.conceptualTendencies)}`,
+                  trim(m.stylePatterns)         && `Style patterns: ${trim(m.stylePatterns)}`,
+                  trim(m.structurePatterns)     && `Structure patterns: ${trim(m.structurePatterns)}`,
+                  trim(m.rhythmObservations)    && `Rhythm: ${trim(m.rhythmObservations)}`,
+                  trim(m.vocabularyTendencies)  && `Vocabulary: ${trim(m.vocabularyTendencies)}`,
+                  trim(m.argumentBehavior)      && `Argument behavior: ${trim(m.argumentBehavior)}`,
+                  trim(m.emotionalDynamics)     && `Emotional dynamics: ${trim(m.emotionalDynamics)}`,
+                  trim(m.reusableParameters)    && `Reusable parameters: ${trim(m.reusableParameters)}`,
+                  // styleInstruction as an extra layer when the structured fields are thin
+                  (!trim(m.stylePatterns) && !trim(m.conceptualTendencies) && trim(m.styleInstruction))
+                    && `Style note: ${trim(m.styleInstruction)}`,
+                ].filter(Boolean);
+
+                if (fields.length === 0) return null;
+                return `[${label}${influence}]\n${fields.join("\n")}`;
+              }).filter(Boolean);
+
+              if (sections.length > 0) {
+                roleModelContext =
+                  `\n\nSTYLE CONTEXT — Author role models to embody:\n\n` +
+                  sections.join("\n\n") +
+                  `\n\nAlign the writing style and voice to the above profile. ` +
+                  `The action's purpose (${mode}) takes priority — style is secondary.`;
+              }
+            }
+          }
+        } catch (rmErr) {
+          console.error("[ai/improve] Role model context failed (non-fatal):", rmErr);
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────────
+
+      const systemPrompt =
+        `You are an expert editor and writer. ${modeInstruction}${styleNote}${customNote}` +
+        `${roleModelContext}` +
+        ` Return ONLY the result, no preamble or explanation.` +
+        ` IMPORTANT: If the input contains blank lines (double newlines) separating paragraphs,` +
+        ` you MUST preserve those blank lines in the exact same positions in your output — do not merge paragraphs or remove the blank lines.` +
+        ` ${langInstruction3}\nContext: Book "${bookTitle || ""}" (${bookMode === "fiction" ? "fiction" : "non-fiction"})`;
+
       const aiModel = await getUserModel(req);
       const completion = await ai.chat.completions.create({
         model: aiModel,
