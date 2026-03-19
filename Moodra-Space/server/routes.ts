@@ -928,17 +928,59 @@ FOCUS FOR THIS PASS: Deep cognitive reconstruction — intellectual method, conc
         return res.json({ improved: completion.choices[0].message.content?.trim() || "", usedModels: [] });
       }
 
+      // ── Build rich author context from deep analysis fields (Phase 4) ─────────
+      // Falls back to styleInstruction if structured fields are missing,
+      // and to minimal identity line if styleInstruction is also absent.
+      const buildCoAuthorContext = (rm: typeof activeModels[0]): string => {
+        const t = (s: string | null | undefined, max = 400) => s?.trim().slice(0, max) ?? "";
+
+        const structured = [
+          t(rm.conceptualTendencies) && `[THINKING & CONCEPTS]\n${t(rm.conceptualTendencies)}`,
+          t(rm.stylePatterns)         && `[STYLE & VOICE]\n${t(rm.stylePatterns)}`,
+          t(rm.structurePatterns)     && `[STRUCTURE]\n${t(rm.structurePatterns)}`,
+          t(rm.rhythmObservations)    && `[RHYTHM & PACING]\n${t(rm.rhythmObservations)}`,
+          t(rm.vocabularyTendencies)  && `[VOCABULARY]\n${t(rm.vocabularyTendencies)}`,
+          t(rm.argumentBehavior)      && `[ARGUMENTATION]\n${t(rm.argumentBehavior)}`,
+          t(rm.emotionalDynamics)     && `[EMOTIONAL REGISTER]\n${t(rm.emotionalDynamics)}`,
+          t(rm.reusableParameters)    && `[CRAFT PARAMETERS]\n${t(rm.reusableParameters)}`,
+        ].filter(Boolean);
+
+        const authorId = [rm.name, rm.authorName].filter(Boolean).join(" / ");
+        const pct = rm.influencePercent ?? 0;
+
+        // Intensity instruction tied to influencePercent — affects how boldly
+        // the model expresses this style in the parallel output
+        const intensityNote = pct >= 67
+          ? "Express your style fully, distinctively, and without restraint."
+          : pct >= 34
+            ? "Express your style clearly while allowing natural variation in the execution."
+            : "Apply your style as a subtle but perceptible coloring — do not overpower the source material.";
+
+        if (structured.length === 0) {
+          // Fallback: structured fields absent — use styleInstruction or bare identity
+          const fallback = t(rm.styleInstruction, 500);
+          const base = fallback
+            ? `You are writing as ${authorId}.\n${fallback}`
+            : `You are writing in the style of ${authorId}.`;
+          return `${base}\n\n${intensityNote}`;
+        }
+
+        // Full structured context with optional styleInstruction nuance at the end
+        const extra = t(rm.styleInstruction, 300);
+        const extraBlock = extra ? `\n\n[ADDITIONAL STYLE NOTE]\n${extra}` : "";
+        return `You are writing as ${authorId}.\n\n${structured.join("\n\n")}${extraBlock}\n\n${intensityNote}`;
+      };
+      // ─────────────────────────────────────────────────────────────────────────
+
       // Parallel: one request per active role model
       const baseInstruction = instruction || (mode === "continue" ? "Continue this text in the author's style." : "Improve and enhance this text.");
       const parallelResults = await Promise.all(
         activeModels.slice(0, 5).map(async (rm) => {
-          const styleCtx = rm.styleInstruction?.trim()
-            ? `You write in the style of ${rm.authorName || rm.name}. ${rm.styleInstruction}`
-            : `You write in the style of ${rm.authorName || rm.name}.`;
+          const styleCtx = buildCoAuthorContext(rm);
           const c = await ai.chat.completions.create({
             model: aiModel,
             messages: [
-              { role: "system", content: `${styleCtx} ${baseInstruction} Return ONLY the result. ${langInstruction}` },
+              { role: "system", content: `${styleCtx}\n\n${baseInstruction} Return ONLY the result. ${langInstruction}` },
               { role: "user", content: text },
             ],
             temperature: 0.75,
@@ -949,22 +991,37 @@ FOCUS FOR THIS PASS: Deep cognitive reconstruction — intellectual method, conc
         })
       );
 
-      // Synthesis agent
+      // Synthesis agent — upgraded to explicit weight guidance
       const total = parallelResults.reduce((s, r) => s + r.pct, 0) || 1;
       const versionsBlock = parallelResults
         .map(r => `=== ${r.name} (influence: ${Math.round((r.pct / total) * 100)}%) ===\n${r.result}`)
         .join("\n\n");
+
+      // Build explicit weight list and dominant-voice guidance for the synthesizer
+      const weightList = parallelResults
+        .map(r => `${r.name}: ${Math.round((r.pct / total) * 100)}%`)
+        .join(", ");
+      const dominant = parallelResults.reduce((a, b) => a.pct > b.pct ? a : b);
+      const dominantShare = dominant.pct / total;
+      const blendGuidance = dominantShare > 0.6
+        ? `${dominant.name} is the dominant voice (${Math.round(dominantShare * 100)}%). Their style should define the overall voice, structure, and emotional register of the synthesis. Other authors contribute subtle colorings — specific vocabulary choices, rhythm variations, thematic echoes — without overriding the primary voice.`
+        : `No single author dominates. Weave all styles proportionally so each voice is perceptible throughout without any one overwhelming the others.`;
 
       const synthesisCompletion = await ai.chat.completions.create({
         model: aiModel,
         messages: [
           {
             role: "system",
-            content: `You are a master synthesis agent. You receive multiple rewritten versions of a text, each representing a different author's stylistic influence at a specified weight. Your task: produce a single, coherent, polished text that blends these styles proportionally to their influence weights. Preserve the original meaning. Return ONLY the final synthesized text. ${langInstruction}`,
+            content: `You are a master synthesis agent. You receive multiple stylistically distinct versions of a text, each written under the influence of a different author at a specified weight. Your task: produce a single, coherent, polished text that blends these styles proportionally to their influence weights. Preserve the original meaning exactly. Return ONLY the final synthesized text. ${langInstruction}`,
           },
           {
             role: "user",
-            content: `ORIGINAL TEXT:\n${text}\n\nSTYLED VERSIONS:\n${versionsBlock}\n\nSynthesize these into one text. Weight each author's contribution by their influence percentage. The result should feel like a natural, seamless blend of all styles in the given proportions.`,
+            content:
+              `ORIGINAL TEXT:\n${text}\n\n` +
+              `STYLE WEIGHTS: ${weightList}\n\n` +
+              `STYLED VERSIONS:\n${versionsBlock}\n\n` +
+              `SYNTHESIS INSTRUCTIONS:\n${blendGuidance}\n` +
+              `Produce one seamless, natural text that honours these proportions exactly.`,
           },
         ],
         temperature: 0.65,
