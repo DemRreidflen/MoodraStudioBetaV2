@@ -208,6 +208,10 @@ export const authorRoleModels = pgTable("author_role_models", {
   argumentBehavior: text("argument_behavior").default(""),
   emotionalDynamics: text("emotional_dynamics").default(""),
   reusableParameters: text("reusable_parameters").default(""),
+  // Embedding fields (Phase 2)
+  embeddingJson: text("embedding_json").default(""),
+  embeddingModel: varchar("embedding_model").default(""),
+  embeddingUpdatedAt: timestamp("embedding_updated_at"),
   createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

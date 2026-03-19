@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertBookSchema, insertChapterSchema, insertCharacterSchema, insertNoteSchema, insertSourceSchema, insertHypothesisSchema, insertDraftSchema, insertNoteCollectionSchema, insertAuthorRoleModelSchema } from "@shared/schema";
 import { assembleNoteContext, buildStructuredPrompt } from "./promptEngine";
+import { generateAndStoreEmbedding } from "./embeddings";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
@@ -838,6 +839,16 @@ FOCUS FOR THIS PASS: Deep cognitive reconstruction — intellectual method, conc
       const merged = mergeAnalyses(parsedMini, parsedDeep);
 
       const updated = await applyMergedAnalysis(merged);
+
+      // Fire-and-forget: generate embedding from the 8 analysis fields.
+      // This does NOT block the response and never breaks if it fails.
+      generateAndStoreEmbedding(
+        ai,
+        id,
+        merged,
+        (mid, data) => storage.updateAuthorRoleModel(mid, data),
+      ).catch(() => {});
+
       return res.json({ model: updated });
     } catch (e: any) {
       const { code } = openAIErrorMessage(e);
