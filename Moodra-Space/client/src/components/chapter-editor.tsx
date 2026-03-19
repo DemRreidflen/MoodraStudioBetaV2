@@ -138,7 +138,8 @@ function estimateAdaptCost(text: string, _modelId?: string) {
 const EDITOR_I18N = {
   en: {
     selectChapter: "Select a chapter to edit",
-    selectChapterHint: "or create a new chapter in the sidebar",
+    selectChapterHint: "or create a new chapter",
+    selectChapterHint2: "in the sidebar",
     improveChapter: "Improve chapter",
     customStyle: "Custom style…",
     applying: "Applying…",
@@ -208,7 +209,8 @@ const EDITOR_I18N = {
   },
   ru: {
     selectChapter: "Выберите главу для редактирования",
-    selectChapterHint: "или создайте новую главу в боковой панели",
+    selectChapterHint: "или создайте новую главу",
+    selectChapterHint2: "в боковой панели",
     improveChapter: "Улучшить главу",
     customStyle: "Свой стиль…",
     applying: "Улучшаю…",
@@ -278,7 +280,8 @@ const EDITOR_I18N = {
   },
   ua: {
     selectChapter: "Оберіть розділ для редагування",
-    selectChapterHint: "або створіть новий розділ у бічній панелі",
+    selectChapterHint: "або створіть новий розділ",
+    selectChapterHint2: "у бічній панелі",
     improveChapter: "Покращити розділ",
     customStyle: "Власний стиль…",
     applying: "Покращую…",
@@ -348,7 +351,8 @@ const EDITOR_I18N = {
   },
   de: {
     selectChapter: "Wähle ein Kapitel zur Bearbeitung",
-    selectChapterHint: "oder erstelle ein neues Kapitel in der Seitenleiste",
+    selectChapterHint: "oder erstelle ein neues Kapitel",
+    selectChapterHint2: "in der Seitenleiste",
     improveChapter: "Kapitel verbessern",
     customStyle: "Eigener Stil…",
     applying: "Verbessere…",
@@ -1171,7 +1175,9 @@ export function ChapterEditor({
           </div>
           <div className="space-y-1.5 max-w-[220px]">
             <p className="text-sm font-semibold">{s.selectChapter}</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">{s.selectChapterHint}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {s.selectChapterHint}<br />{s.selectChapterHint2}
+            </p>
           </div>
         </div>
       </div>
