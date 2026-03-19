@@ -8,7 +8,7 @@ import { useLang } from "@/contexts/language-context";
 import {
   FileText, Plus, Trash2, Lightbulb, MessageSquare, Hash, BookOpen,
   GripVertical, X, Check, Search, ChevronLeft, ChevronRight,
-  Inbox, Pin, PinOff, FolderOpen, Tag, Filter,
+  Inbox, Pin, PinOff, FolderOpen, Tag, Filter, Pencil,
   Sparkles, Brain, Target, HelpCircle, Telescope, Feather, Users,
   ChevronDown, ChevronUp, StickyNote, Layers, RotateCcw, AlertTriangle,
   Bold, Italic, Underline, Strikethrough, List, ListOrdered,
@@ -1429,6 +1429,8 @@ export function NotesPanel({ bookId, aiPanelOpen, bookTitle }: { bookId: number;
   });
   const [chains, setChains] = useState<NoteChain[]>(() => getChains(bookId));
   const [showChainManager, setShowChainManager] = useState(false);
+  const [editingChainId, setEditingChainId] = useState<string | null>(null);
+  const [editingChainName, setEditingChainName] = useState("");
   const [sidebarWidth, setSidebarWidth] = useState(168);
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingSidebar = useRef(false);
@@ -1725,18 +1727,70 @@ export function NotesPanel({ bookId, aiPanelOpen, bookTitle }: { bookId: number;
             </div>
             {chainsOpen && (
               <div>
-                {chains.map(ch => (
-                  <div key={ch.id}
-                    className={cn("group w-full flex items-center gap-1 px-3 py-1.5 text-left text-xs transition-colors cursor-pointer",
-                      sidebarView === `chain:${ch.id}` ? "font-semibold" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground")}
-                    style={sidebarView === `chain:${ch.id}` ? { color: ch.color, background: `${ch.color}10` } : {}}>
-                    <button className="flex items-center gap-1.5 flex-1 min-w-0 text-left" onClick={() => setSidebarView(`chain:${ch.id}`)}>
+                {chains.map(ch => {
+                  const isEditing = editingChainId === ch.id;
+                  const isActive = sidebarView === `chain:${ch.id}`;
+                  return (
+                    <div key={ch.id}
+                      className={cn("group w-full flex items-center gap-1 px-2 py-1 text-left text-xs transition-colors",
+                        isActive ? "font-semibold" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground")}
+                      style={isActive ? { color: ch.color, background: `${ch.color}10` } : {}}>
                       <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ch.color }} />
-                      <span className="truncate flex-1">{ch.name}</span>
-                      <span className="text-[9px] text-muted-foreground/50">{ch.noteIds.length}</span>
-                    </button>
-                  </div>
-                ))}
+                      {isEditing ? (
+                        <div className="flex items-center gap-1 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            value={editingChainName}
+                            onChange={e => setEditingChainName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                const trimmed = editingChainName.trim();
+                                if (trimmed) {
+                                  const updated = chains.map(c => c.id === ch.id ? { ...c, name: trimmed } : c);
+                                  setChains(updated); saveChains(bookId, updated);
+                                }
+                                setEditingChainId(null);
+                              }
+                              if (e.key === "Escape") setEditingChainId(null);
+                            }}
+                            className="flex-1 min-w-0 bg-transparent border-b border-primary/50 outline-none text-[11px] py-0.5"
+                            style={{ color: ch.color }}
+                          />
+                          <button onClick={() => {
+                            const trimmed = editingChainName.trim();
+                            if (trimmed) {
+                              const updated = chains.map(c => c.id === ch.id ? { ...c, name: trimmed } : c);
+                              setChains(updated); saveChains(bookId, updated);
+                            }
+                            setEditingChainId(null);
+                          }} className="w-4 h-4 flex items-center justify-center rounded hover:bg-green-100 text-green-600 flex-shrink-0">
+                            <Check className="h-2.5 w-2.5" />
+                          </button>
+                          <button onClick={() => {
+                            const updated = chains.filter(c => c.id !== ch.id);
+                            setChains(updated); saveChains(bookId, updated);
+                            if (sidebarView === `chain:${ch.id}`) setSidebarView("all");
+                            setEditingChainId(null);
+                          }} className="w-4 h-4 flex items-center justify-center rounded hover:bg-red-100 text-red-400 flex-shrink-0">
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <button className="flex items-center gap-1 flex-1 min-w-0 text-left" onClick={() => setSidebarView(`chain:${ch.id}`)}>
+                            <span className="truncate flex-1">{ch.name}</span>
+                            <span className="text-[9px] text-muted-foreground/50">{ch.noteIds.length}</span>
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); setEditingChainName(ch.name); setEditingChainId(ch.id); }}
+                            className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-accent/60 text-muted-foreground/50 hover:text-foreground transition-all flex-shrink-0">
+                            <Pencil className="h-2.5 w-2.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
                 {chains.length === 0 && (
                   <p className="px-4 py-2 text-[10px] text-muted-foreground/50">{s.noChains}</p>
                 )}
