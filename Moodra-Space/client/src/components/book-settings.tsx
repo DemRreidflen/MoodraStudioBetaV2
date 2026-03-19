@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Book, AuthorRoleModel } from "@shared/schema";
+import type { Book } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useLang } from "@/contexts/language-context";
-import { Settings, Save, Trash2, FlaskConical, Feather, Check, ImagePlus, X, UserSearch, Sliders, Loader2, Brain } from "lucide-react";
+import { Settings, Save, Trash2, FlaskConical, Feather, Check, ImagePlus, X, Sliders, Lightbulb, BookMarked, Layers, Target, Pen } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -255,20 +255,6 @@ export function BookSettings({ book }: { book: Book }) {
     },
   });
 
-  // ── Role Models ───────────────────────────────────────────────────────────
-  const { data: roleModels = [] } = useQuery<AuthorRoleModel[]>({
-    queryKey: ["/api/books", book.id, "role-models"],
-    queryFn: () => apiRequest("GET", `/api/books/${book.id}/role-models`),
-  });
-  const updateRoleModelMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest("PATCH", `/api/role-models/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/books", book.id, "role-models"] }),
-  });
-  const deleteRoleModelMutation = useMutation({
-    mutationFn: (id: number) => apiRequest("DELETE", `/api/role-models/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/books", book.id, "role-models"] }),
-  });
-  const [pendingInfluence, setPendingInfluence] = useState<Record<number, number>>({});
 
   const buildNarrativeContext = () => ({
     ...(ncCoreIdea && { coreIdea: ncCoreIdea }),
@@ -502,147 +488,127 @@ export function BookSettings({ book }: { book: Book }) {
           </div>
 
           {/* ── Narrative Context ─────────────────────────────────── */}
-          <div className="space-y-3 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(249,109,28,0.10)" }}>
-                <Sliders className="h-3.5 w-3.5" style={{ color: "#F96D1C" }} />
+          <div className="pt-4 border-t border-border">
+            {/* Section header */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(249,109,28,0.12)" }}>
+                <Sliders className="h-4.5 w-4.5" style={{ color: "#F96D1C" }} />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm">
+                <h3 className="font-bold text-sm">
                   {lang === "ru" ? "Контекст книги" : lang === "ua" ? "Контекст книги" : lang === "de" ? "Buchkontext" : "Book Context"}
                 </h3>
-                <p className="text-[10px] text-muted-foreground/55 leading-tight">
-                  {lang === "ru" ? "Используется ИИ при анализе и генерации" : lang === "ua" ? "Використовується ІІ при аналізі і генерації" : lang === "de" ? "Wird von der KI bei Analyse & Generierung genutzt" : "Used by AI during analysis & generation"}
+                <p className="text-[11px] text-muted-foreground/60 leading-tight mt-0.5">
+                  {lang === "ru" ? "ИИ использует эти данные при каждом анализе и генерации" : lang === "ua" ? "ІІ використовує ці дані при кожному аналізі та генерації" : lang === "de" ? "Die KI nutzt diese Daten bei jeder Analyse und Generierung" : "AI uses this data in every analysis and generation"}
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: lang === "ru" ? "Основная идея" : "Core idea", value: ncCoreIdea, set: setNcCoreIdea, rows: 2 },
-                { label: lang === "ru" ? "Темы" : "Themes", value: ncThemes, set: setNcThemes, rows: 2 },
-                { label: lang === "ru" ? "Подтемы" : "Subthemes", value: ncSubthemes, set: setNcSubthemes, rows: 2 },
-                { label: lang === "ru" ? "Структура" : "Structure", value: ncStructure, set: setNcStructure, rows: 2 },
-                { label: lang === "ru" ? "Тон" : "Tone", value: ncTone, set: setNcTone, rows: 1 },
-                { label: lang === "ru" ? "Детали тона" : "Tone details", value: ncToneDetails, set: setNcToneDetails, rows: 2 },
-                { label: lang === "ru" ? "Целевой читатель" : "Target reader", value: ncTargetReader, set: setNcTargetReader, rows: 1 },
-                { label: lang === "ru" ? "Профиль читателя" : "Reader profile", value: ncTargetReaderProfile, set: setNcTargetReaderProfile, rows: 2 },
-                { label: lang === "ru" ? "Ключевые аргументы" : "Key arguments", value: ncKeyArguments, set: setNcKeyArguments, rows: 2 },
-                { label: lang === "ru" ? "Арки персонажей" : "Character arcs", value: ncCharacterArcs, set: setNcCharacterArcs, rows: 2 },
-                { label: lang === "ru" ? "Темп и ритм" : "Pacing notes", value: ncPacingNotes, set: setNcPacingNotes, rows: 2 },
-                { label: lang === "ru" ? "Стиль письма" : "Writing style notes", value: ncWritingStyleNotes, set: setNcWritingStyleNotes, rows: 2 },
-              ].map(field => (
-                <div key={field.label} className="space-y-1">
-                  <Label className="text-xs font-medium text-muted-foreground/70">{field.label}</Label>
+
+            <div className="space-y-4">
+              {/* Core idea — full width */}
+              <div className="rounded-2xl border border-border p-4 space-y-3" style={{ background: "rgba(249,109,28,0.025)" }}>
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-3.5 w-3.5" style={{ color: "#F96D1C" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#F96D1C" }}>
+                    {lang === "ru" ? "Суть книги" : lang === "ua" ? "Суть книги" : lang === "de" ? "Buchkern" : "Book Core"}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium text-muted-foreground/70">
+                    {lang === "ru" ? "Основная идея" : lang === "ua" ? "Основна ідея" : lang === "de" ? "Kernidee" : "Core idea"}
+                  </Label>
                   <Textarea
-                    value={field.value}
-                    onChange={e => { field.set(e.target.value); mark(); }}
-                    rows={field.rows}
-                    placeholder="…"
-                    className="bg-background rounded-xl resize-none border-border text-xs py-2"
+                    value={ncCoreIdea}
+                    onChange={e => { setNcCoreIdea(e.target.value); mark(); }}
+                    rows={3}
+                    placeholder={lang === "ru" ? "Центральная мысль, тезис или нарративный двигатель книги…" : lang === "ua" ? "Центральна думка, теза або наративний двигун книги…" : lang === "de" ? "Der zentrale Gedanke, die These oder der narrative Antrieb des Buches…" : "The central thought, thesis or narrative driver of the book…"}
+                    className="bg-background rounded-xl resize-none border-border text-sm"
                   />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Role Models / Co-Authors ─────────────────────────── */}
-          <div className="space-y-3 pt-4 border-t border-border">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(168,85,247,0.12)" }}>
-                <Brain className="h-3.5 w-3.5" style={{ color: "#A855F7" }} />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm">
-                  {lang === "ru" ? "Ролевые модели авторов" : lang === "ua" ? "Рольові моделі авторів" : lang === "de" ? "Autoren-Rollenmodelle" : "Author Role Models"}
-                </h3>
-                <p className="text-[10px] text-muted-foreground/55 leading-tight">
-                  {lang === "ru"
-                    ? "% влияния каждого автора на стиль ИИ"
-                    : lang === "ua" ? "% впливу автора на стиль ІІ"
-                    : lang === "de" ? "Einfluss auf den KI-Schreibstil"
-                    : "Style influence on AI writing"}
-                </p>
-              </div>
-            </div>
 
-            {roleModels.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/50 p-5 text-center" style={{ background: "rgba(168,85,247,0.03)" }}>
-                <div className="w-8 h-8 rounded-xl mx-auto mb-2 flex items-center justify-center" style={{ background: "rgba(168,85,247,0.08)" }}>
-                  <UserSearch className="h-4 w-4" style={{ color: "#A855F7" }} />
+              {/* Narrative: themes + subthemes */}
+              <div className="rounded-2xl border border-border p-4 space-y-3" style={{ background: "rgba(59,130,246,0.025)" }}>
+                <div className="flex items-center gap-2">
+                  <BookMarked className="h-3.5 w-3.5" style={{ color: "#3B82F6" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#3B82F6" }}>
+                    {lang === "ru" ? "Нарратив" : lang === "ua" ? "Наратив" : lang === "de" ? "Narrativ" : "Narrative"}
+                  </span>
                 </div>
-                <p className="text-xs font-medium text-muted-foreground/60 mb-0.5">
-                  {lang === "ru" ? "Нет ролевых моделей" : lang === "ua" ? "Немає рольових моделей" : lang === "de" ? "Keine Rollenmodelle" : "No role models yet"}
-                </p>
-                <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
-                  {lang === "ru"
-                    ? "Добавьте анализ автора в Исследовании"
-                    : "Add an author analysis in Research"}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {roleModels.map(model => {
-                  const currentPct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
-                  const color = model.avatarColor || "#8B5CF6";
-                  const isActive = currentPct > 0;
-                  return (
-                    <div key={model.id}
-                      className="rounded-2xl overflow-hidden transition-shadow hover:shadow-sm"
-                      style={{ border: `1.5px solid ${isActive ? color + "30" : "rgba(0,0,0,0.06)"}`, background: isActive ? color + "06" : "transparent" }}>
-                      <div className="flex items-center gap-3 px-3 pt-3 pb-2">
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-[12px] font-bold text-white shadow-sm"
-                          style={{ background: `linear-gradient(135deg, ${color}, ${color}aa)` }}>
-                          {(model.authorName || model.name || "?")[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold truncate leading-tight">{model.name}</p>
-                          {model.authorName && (
-                            <p className="text-[10px] truncate" style={{ color: color + "99" }}>{model.authorName}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-bold tabular-nums leading-none" style={{ color: isActive ? color : "hsl(var(--muted-foreground))", opacity: isActive ? 1 : 0.4 }}>
-                            {currentPct}<span className="text-[10px] font-normal">%</span>
-                          </span>
-                          <button
-                            onClick={() => deleteRoleModelMutation.mutate(model.id)}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/10 transition-colors ml-1"
-                          >
-                            <X className="h-3 w-3 text-muted-foreground/40 hover:text-destructive" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="px-3 pb-3">
-                        <input
-                          type="range" min={0} max={100} step={5}
-                          value={currentPct}
-                          onChange={e => setPendingInfluence(p => ({ ...p, [model.id]: Number(e.target.value) }))}
-                          onMouseUp={() => {
-                            const pct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
-                            updateRoleModelMutation.mutate({ id: model.id, data: { influencePercent: pct } });
-                          }}
-                          onTouchEnd={() => {
-                            const pct = pendingInfluence[model.id] ?? model.influencePercent ?? 0;
-                            updateRoleModelMutation.mutate({ id: model.id, data: { influencePercent: pct } });
-                          }}
-                          className="w-full h-1.5 rounded-full cursor-pointer appearance-none"
-                          style={{ accentColor: color, background: `linear-gradient(to right, ${color} ${currentPct}%, rgba(0,0,0,0.08) ${currentPct}%)` }}
-                        />
-                      </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "themes", label: lang === "ru" ? "Темы" : lang === "ua" ? "Теми" : lang === "de" ? "Themen" : "Themes", placeholder: lang === "ru" ? "Главные темы через запятую…" : "Main themes, comma-separated…", value: ncThemes, set: setNcThemes, rows: 2 },
+                    { key: "subthemes", label: lang === "ru" ? "Подтемы" : lang === "ua" ? "Підтеми" : lang === "de" ? "Unterthemen" : "Subthemes", placeholder: lang === "ru" ? "Второстепенные темы…" : "Secondary themes…", value: ncSubthemes, set: setNcSubthemes, rows: 2 },
+                    { key: "keyArgs", label: lang === "ru" ? "Ключевые аргументы" : lang === "ua" ? "Ключові аргументи" : lang === "de" ? "Kernargumente" : "Key arguments", placeholder: lang === "ru" ? "Основные доводы и тезисы…" : "Main arguments and theses…", value: ncKeyArguments, set: setNcKeyArguments, rows: 2 },
+                    { key: "charArcs", label: lang === "ru" ? "Арки персонажей" : lang === "ua" ? "Арки персонажів" : lang === "de" ? "Figurenentwicklung" : "Character arcs", placeholder: lang === "ru" ? "Трансформация героев…" : "Character transformation…", value: ncCharacterArcs, set: setNcCharacterArcs, rows: 2 },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground/70">{f.label}</Label>
+                      <Textarea value={f.value} onChange={e => { f.set(e.target.value); mark(); }} rows={f.rows} placeholder={f.placeholder} className="bg-background rounded-xl resize-none border-border text-xs py-2" />
                     </div>
-                  );
-                })}
-                {roleModels.filter(m => (m.influencePercent ?? 0) > 0).length > 0 && (
-                  <div className="rounded-xl px-3 py-2" style={{ background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.12)" }}>
-                    <p className="text-[10px] leading-relaxed" style={{ color: "#A855F7", opacity: 0.75 }}>
-                      {lang === "ru"
-                        ? `${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length} ${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length === 1 ? "активная модель" : "активных модели"} — ИИ будет смешивать стили пропорционально указанным процентам.`
-                        : `${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length} active model${roleModels.filter(m => (m.influencePercent ?? 0) > 0).length !== 1 ? "s" : ""} — styles blended proportionally when AI writes.`}
-                    </p>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
-            )}
+
+              {/* Structure + tone */}
+              <div className="rounded-2xl border border-border p-4 space-y-3" style={{ background: "rgba(99,102,241,0.025)" }}>
+                <div className="flex items-center gap-2">
+                  <Layers className="h-3.5 w-3.5" style={{ color: "#6366F1" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#6366F1" }}>
+                    {lang === "ru" ? "Архитектура и тон" : lang === "ua" ? "Архітектура і тон" : lang === "de" ? "Aufbau & Ton" : "Architecture & Tone"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "structure", label: lang === "ru" ? "Структура" : lang === "ua" ? "Структура" : lang === "de" ? "Struktur" : "Structure", placeholder: lang === "ru" ? "Три акта, нелинейная, фрагментарная…" : "Three acts, nonlinear, fragmented…", value: ncStructure, set: setNcStructure, rows: 2 },
+                    { key: "tone", label: lang === "ru" ? "Тон" : lang === "ua" ? "Тон" : lang === "de" ? "Ton" : "Tone", placeholder: lang === "ru" ? "Философский, ироничный, лиричный…" : "Philosophical, ironic, lyrical…", value: ncTone, set: setNcTone, rows: 2 },
+                    { key: "toneDetails", label: lang === "ru" ? "Детали тона" : lang === "ua" ? "Деталі тону" : lang === "de" ? "Ton-Details" : "Tone details", placeholder: lang === "ru" ? "Нюансы голоса и интонации…" : "Nuances of voice and intonation…", value: ncToneDetails, set: setNcToneDetails, rows: 2 },
+                    { key: "pacing", label: lang === "ru" ? "Темп и ритм" : lang === "ua" ? "Темп і ритм" : lang === "de" ? "Tempo & Rhythmus" : "Pacing notes", placeholder: lang === "ru" ? "Медленное, напряжённое, эпизодическое…" : "Slow, tense, episodic…", value: ncPacingNotes, set: setNcPacingNotes, rows: 2 },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground/70">{f.label}</Label>
+                      <Textarea value={f.value} onChange={e => { f.set(e.target.value); mark(); }} rows={f.rows} placeholder={f.placeholder} className="bg-background rounded-xl resize-none border-border text-xs py-2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Audience + style */}
+              <div className="rounded-2xl border border-border p-4 space-y-3" style={{ background: "rgba(16,185,129,0.025)" }}>
+                <div className="flex items-center gap-2">
+                  <Target className="h-3.5 w-3.5" style={{ color: "#10B981" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#10B981" }}>
+                    {lang === "ru" ? "Аудитория и стиль" : lang === "ua" ? "Аудиторія і стиль" : lang === "de" ? "Zielgruppe & Stil" : "Audience & Style"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { key: "targetReader", label: lang === "ru" ? "Целевой читатель" : lang === "ua" ? "Цільовий читач" : lang === "de" ? "Zielleser" : "Target reader", placeholder: lang === "ru" ? "Возраст, профессия, интересы…" : "Age, profession, interests…", value: ncTargetReader, set: setNcTargetReader, rows: 2 },
+                    { key: "readerProfile", label: lang === "ru" ? "Профиль читателя" : lang === "ua" ? "Профіль читача" : lang === "de" ? "Leserprofil" : "Reader profile", placeholder: lang === "ru" ? "Ожидания, уровень знаний, боли…" : "Expectations, knowledge level, pain points…", value: ncTargetReaderProfile, set: setNcTargetReaderProfile, rows: 2 },
+                    { key: "writingStyle", label: lang === "ru" ? "Стиль письма" : lang === "ua" ? "Стиль письма" : lang === "de" ? "Schreibstil" : "Writing style", placeholder: lang === "ru" ? "Академический, публицистический, нарративный…" : "Academic, journalistic, narrative…", value: ncWritingStyleNotes, set: setNcWritingStyleNotes, rows: 3 },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <Label className="text-xs font-medium text-muted-foreground/70">{f.label}</Label>
+                      <Textarea value={f.value} onChange={e => { f.set(e.target.value); mark(); }} rows={f.rows} placeholder={f.placeholder} className="bg-background rounded-xl resize-none border-border text-xs py-2" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI usage hint */}
+              <div className="rounded-xl px-3.5 py-2.5 flex items-start gap-2.5" style={{ background: "rgba(249,109,28,0.06)", border: "1px solid rgba(249,109,28,0.15)" }}>
+                <Pen className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: "#F96D1C" }} />
+                <p className="text-[11px] leading-relaxed" style={{ color: "#F96D1C", opacity: 0.85 }}>
+                  {lang === "ru"
+                    ? "Заполненные поля встраиваются в каждый AI-промпт: помогают соавтору, анализу текста, черновикам и доске идей понимать суть вашей книги."
+                    : lang === "ua"
+                    ? "Заповнені поля вбудовуються в кожен AI-промпт: допомагають співавтору, аналізу тексту, чернеткам і дошці ідей розуміти суть вашої книги."
+                    : lang === "de"
+                    ? "Ausgefüllte Felder fließen in jeden KI-Prompt ein: Sie helfen dem Co-Autor, der Textanalyse, Entwürfen und dem Ideenbrett, das Wesen Ihres Buches zu verstehen."
+                    : "Filled fields are embedded in every AI prompt — helping the co-author, text analysis, drafts, and idea board understand the essence of your book."}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Danger zone */}

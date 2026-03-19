@@ -296,11 +296,15 @@ export function BookSidebar({ bookId, bookMode, chapters, selectedId, onSelect }
       <ScrollArea className="flex-1">
         <div className="py-1.5 px-1.5">
           {chapters.length === 0 && !adding && (
-            <div className="px-2 py-6 text-center">
-              <BookOpen className="h-6 w-6 mx-auto text-muted-foreground/50 mb-2" />
-              <p className="text-xs text-muted-foreground">{s.noChapters}</p>
+            <div className="px-2 py-8 text-center">
+              <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+                style={{ background: "rgba(249,109,28,0.10)", border: "1.5px solid rgba(249,109,28,0.20)" }}>
+                <BookOpen className="h-5 w-5" style={{ color: "#F96D1C" }} />
+              </div>
+              <p className="text-xs font-medium text-muted-foreground/70">{s.noChapters}</p>
               <button
-                className="text-xs text-primary mt-1 hover:underline"
+                className="text-xs mt-2 px-3 py-1 rounded-full font-semibold transition-all hover:opacity-80"
+                style={{ background: "rgba(249,109,28,0.10)", color: "#F96D1C" }}
                 onClick={() => setAdding(true)}
               >
                 {s.addFirst}
