@@ -1,4 +1,4 @@
-import { Feather, FlaskConical, Sparkles, Network, AlertCircle } from "lucide-react";
+import { Feather, FlaskConical, Sparkles, Network, Check, AlertCircle } from "lucide-react";
 import { LanguagePicker } from "@/components/language-picker";
 import { useLang } from "@/contexts/language-context";
 
@@ -11,168 +11,135 @@ export default function LoginPage() {
   const featureKeys = ["editor", "ai", "research", "ideas"] as const;
 
   return (
-    <div className="min-h-screen flex">
-
+    <div
+      className="min-h-screen flex"
+      style={{ background: "hsl(30, 58%, 97%)" }}
+    >
       {/* ── Left branding panel ── */}
       <div
-        className="hidden lg:flex flex-col w-[58%] relative overflow-hidden"
-        style={{ background: "#FFF0E4" }}
+        className="hidden lg:flex flex-col w-[56%] relative overflow-hidden"
+        style={{
+          background: "linear-gradient(150deg, #fff9f4 0%, #ffeedd 55%, #fdd6aa 100%)",
+        }}
       >
-        {/* Mesh gradient blobs */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Large sphere top-left — deep orange */}
-          <div
-            className="absolute"
-            style={{
-              top: "-30%",
-              left: "-20%",
-              width: "80%",
-              paddingBottom: "80%",
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 45% 45%, #FF8C38 0%, #FF6B1C 40%, #F95A00 65%, transparent 80%)",
-              filter: "blur(50px)",
-              opacity: 0.75,
-            }}
-          />
-          {/* Bright peach sphere — bottom right */}
-          <div
-            className="absolute"
-            style={{
-              bottom: "-20%",
-              right: "-15%",
-              width: "65%",
-              paddingBottom: "65%",
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 55% 55%, #FFB87A 0%, #FF9640 45%, transparent 72%)",
-              filter: "blur(60px)",
-              opacity: 0.7,
-            }}
-          />
-          {/* Warm yellow highlight — top right */}
-          <div
-            className="absolute"
-            style={{
-              top: "-10%",
-              right: "5%",
-              width: "45%",
-              paddingBottom: "45%",
-              borderRadius: "50%",
-              background: "radial-gradient(circle at 50% 40%, #FFE0A0 0%, #FFCA60 40%, transparent 68%)",
-              filter: "blur(70px)",
-              opacity: 0.6,
-            }}
-          />
-          {/* Light cream center fill */}
-          <div
-            className="absolute"
-            style={{
-              top: "25%",
-              left: "20%",
-              width: "60%",
-              paddingBottom: "50%",
-              borderRadius: "50%",
-              background: "radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.7) 0%, transparent 70%)",
-              filter: "blur(40px)",
-            }}
-          />
-        </div>
+        {/* Decorative blobs */}
+        <div
+          className="absolute -top-48 -left-48 w-[580px] h-[580px] rounded-full opacity-20 pointer-events-none"
+          style={{ background: "radial-gradient(circle, #F96D1C 0%, transparent 65%)" }}
+        />
+        <div
+          className="absolute -bottom-32 -right-24 w-[420px] h-[420px] rounded-full opacity-12 pointer-events-none"
+          style={{ background: "radial-gradient(circle, #FF9640 0%, transparent 65%)" }}
+        />
+        {/* Subtle grid texture */}
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: "repeating-linear-gradient(0deg, #8B4513 0, #8B4513 1px, transparent 0, transparent 50%), repeating-linear-gradient(90deg, #8B4513 0, #8B4513 1px, transparent 0, transparent 50%)",
+            backgroundSize: "40px 40px",
+          }}
+        />
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col h-full px-14 py-12">
+        <div className="relative z-10 flex flex-col h-full px-16 py-14">
 
           {/* Logo */}
-          <div className="mb-auto">
+          <div className="mb-12">
             <img
               src="/moodra-logo-full.png"
               alt="moodra"
-              style={{
-                height: "36px",
-                width: "auto",
-                objectFit: "contain",
-                display: "block",
-              }}
+              style={{ height: "40px", width: "auto", objectFit: "contain", display: "block" }}
             />
           </div>
 
-          {/* Hero copy */}
-          <div className="mb-10 mt-auto">
-            {/* Eyebrow tag */}
-            <div
-              className="inline-flex items-center gap-2 rounded-full px-3 py-1 mb-6"
-              style={{
-                background: "rgba(249,109,28,0.12)",
-                border: "1px solid rgba(249,109,28,0.25)",
-              }}
+          {/* Eyebrow */}
+          <div className="mb-4 flex items-center gap-2">
+            <div className="h-px w-6" style={{ background: "#F96D1C" }} />
+            <span
+              className="text-[10px] font-bold tracking-[0.18em] uppercase"
+              style={{ color: "#F96D1C" }}
             >
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: "#F96D1C" }} />
-              <span
-                className="text-[10px] font-bold tracking-[0.16em] uppercase"
-                style={{ color: "#C44E00" }}
-              >
-                {l.eyebrow}
-              </span>
-            </div>
+              {l.eyebrow}
+            </span>
+          </div>
 
+          {/* Hero copy */}
+          <div className="mb-16">
             <h2
-              className="font-bold leading-[1.05] mb-5"
+              className="font-bold leading-[1.1] mb-5"
               style={{
                 color: "#1a0d06",
-                fontSize: "clamp(2.4rem, 3.5vw, 3.5rem)",
-                letterSpacing: "-0.03em",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontSize: "2.9rem",
+                letterSpacing: "-0.02em",
               }}
             >
               {l.headline1}<br />
               <span style={{ color: "#F96D1C" }}>{l.headline2}</span>
             </h2>
-            <p
-              className="text-[0.93rem] leading-relaxed max-w-[400px]"
-              style={{ color: "#6b4a30" }}
-            >
+            <p className="text-[0.96rem] leading-relaxed max-w-[400px]" style={{ color: "#7a5a44" }}>
               {l.subheadline}
             </p>
           </div>
 
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2.5 mb-10">
+          {/* Feature cards 2×2 */}
+          <div className="grid grid-cols-2 gap-3 mb-10">
             {featureKeys.map((key, i) => {
               const Icon = featureIcons[i];
               const feat = l.features[key];
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-2 rounded-2xl px-3.5 py-2.5"
+                  className="rounded-2xl p-4"
                   style={{
                     background: "rgba(255,255,255,0.6)",
-                    border: "1px solid rgba(249,109,28,0.18)",
-                    backdropFilter: "blur(12px)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(249,109,28,0.14)",
                   }}
                 >
                   <div
-                    className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(249,109,28,0.14)" }}
+                    className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
+                    style={{ background: "rgba(249,109,28,0.12)" }}
                   >
-                    <Icon className="w-3.5 h-3.5" style={{ color: "#F96D1C" }} strokeWidth={1.8} />
+                    <Icon className="w-4 h-4" style={{ color: "#F96D1C" }} strokeWidth={1.8} />
                   </div>
-                  <span className="text-xs font-medium" style={{ color: "#2a1406" }}>
+                  <div
+                    className="text-sm font-semibold mb-1 leading-snug"
+                    style={{ color: "#1a0d06", fontFamily: "system-ui, -apple-system, sans-serif" }}
+                  >
                     {feat.title}
-                  </span>
+                  </div>
+                  <div className="text-xs leading-relaxed" style={{ color: "#9a7060" }}>
+                    {feat.desc}
+                  </div>
                 </div>
               );
             })}
           </div>
 
+          {/* Checkmarks */}
+          <div className="flex flex-col gap-2.5 mb-auto">
+            {l.highlights.map((h: string) => (
+              <div key={h} className="flex items-center gap-2.5">
+                <div
+                  className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(249,109,28,0.16)" }}
+                >
+                  <Check className="w-2.5 h-2.5" style={{ color: "#F96D1C" }} strokeWidth={2.5} />
+                </div>
+                <span className="text-xs" style={{ color: "#7a5a44" }}>{h}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Footer */}
-          <p className="text-xs" style={{ color: "rgba(100,60,20,0.45)" }}>
+          <p className="mt-14 text-xs" style={{ color: "#c0a080" }}>
             © 2026 Moodra · {l.footer}
           </p>
         </div>
       </div>
 
       {/* ── Right sign-in panel ── */}
-      <div
-        className="flex-1 flex flex-col items-center justify-center px-8 py-16 relative"
-        style={{ background: "#FDFAF7" }}
-      >
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-16 relative">
         <div className="absolute top-5 right-6">
           <LanguagePicker />
         </div>
@@ -186,13 +153,13 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="w-full max-w-[300px] flex flex-col gap-7">
+        <div className="w-full max-w-[300px] flex flex-col gap-8">
 
           {/* Icon accent */}
           <img
             src="/moodra-icon-sketch.png"
             alt="Moodra"
-            className="w-14 h-14 rounded-2xl"
+            className="w-16 h-16 rounded-2xl"
             style={{ objectFit: "cover" }}
           />
 
@@ -201,8 +168,9 @@ export default function LoginPage() {
               className="font-bold mb-2"
               style={{
                 color: "#1a0d06",
-                fontSize: "1.7rem",
-                letterSpacing: "-0.025em",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+                fontSize: "1.75rem",
+                letterSpacing: "-0.02em",
                 lineHeight: 1.2,
               }}
             >
