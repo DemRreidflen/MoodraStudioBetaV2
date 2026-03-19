@@ -14,7 +14,7 @@ import {
   Bold, Italic, Underline, Strikethrough, List, ListOrdered,
   Heading1, Heading2, Heading3, Quote, Indent, Outdent, Table, Link2,
   Highlighter, Type, ImagePlus, Paperclip, Download, Link, Palette,
-  Link as LinkIcon, ArrowRight, ArrowLeft, Rows, Columns, Minus,
+  Link as LinkIcon, ArrowRight, ArrowLeft, Rows, Columns, Minus, Loader2,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
@@ -50,7 +50,7 @@ const NOTES_I18N = {
     title: "Notes", inbox: "Inbox", pinned: "Pinned", allNotes: "All notes",
     collections: "Collections", noCollection: "Uncategorized", addCollection: "New collection…",
     count: (n: number) => `${n} note${n !== 1 ? "s" : ""}`,
-    newBtn: "New", searchPlaceholder: "Search notes…",
+    newBtn: "New", searchPlaceholder: "Search notes…", quickCapture: "Quick note — press Enter to save…",
     noResults: "No notes match your search", emptyTitle: "No notes yet",
     emptyDesc: "Capture ideas with the quick-capture bar above",
     emptyInbox: "Inbox is empty", emptyInboxDesc: "Quick-captured notes land here first",
@@ -81,7 +81,7 @@ const NOTES_I18N = {
     title: "Заметки", inbox: "Входящие", pinned: "Закреплённые", allNotes: "Все заметки",
     collections: "Коллекции", noCollection: "Без коллекции", addCollection: "Новая коллекция…",
     count: (n: number) => `${n} заметок`,
-    newBtn: "Новая", searchPlaceholder: "Поиск заметок…",
+    newBtn: "Новая", searchPlaceholder: "Поиск заметок…", quickCapture: "Быстрая заметка — Enter для сохранения…",
     noResults: "Заметки не найдены", emptyTitle: "Нет заметок",
     emptyDesc: "Фиксируй идеи в строке быстрого захвата выше",
     emptyInbox: "Входящие пусты", emptyInboxDesc: "Быстро захваченные заметки попадают сюда",
@@ -112,7 +112,7 @@ const NOTES_I18N = {
     title: "Нотатки", inbox: "Вхідні", pinned: "Закріплені", allNotes: "Всі нотатки",
     collections: "Колекції", noCollection: "Без колекції", addCollection: "Нова колекція…",
     count: (n: number) => `${n} нотаток`,
-    newBtn: "Нова", searchPlaceholder: "Пошук нотаток…",
+    newBtn: "Нова", searchPlaceholder: "Пошук нотаток…", quickCapture: "Швидка нотатка — Enter для збереження…",
     noResults: "Нотатки не знайдено", emptyTitle: "Немає нотаток",
     emptyDesc: "Фіксуй ідеї у рядку швидкого захоплення вище",
     emptyInbox: "Вхідні порожні", emptyInboxDesc: "Швидко захоплені нотатки потрапляють сюди",
@@ -143,7 +143,7 @@ const NOTES_I18N = {
     title: "Notizen", inbox: "Eingang", pinned: "Angeheftet", allNotes: "Alle Notizen",
     collections: "Sammlungen", noCollection: "Ohne Sammlung", addCollection: "Neue Sammlung…",
     count: (n: number) => `${n} Notiz${n !== 1 ? "en" : ""}`,
-    newBtn: "Neu", searchPlaceholder: "Notizen suchen…",
+    newBtn: "Neu", searchPlaceholder: "Notizen suchen…", quickCapture: "Schnellnotiz — Enter zum Speichern…",
     noResults: "Keine Notizen gefunden", emptyTitle: "Noch keine Notizen",
     emptyDesc: "Erfasse Ideen mit der Schnelleingabe oben",
     emptyInbox: "Eingang ist leer", emptyInboxDesc: "Schnell erfasste Notizen landen hier zuerst",
@@ -1425,6 +1425,15 @@ export function NotesPanel({ bookId, aiPanelOpen, bookTitle }: { bookId: number;
     onSuccess: (_, vars) => { queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] }); toast({ title: vars.isPinned === "true" ? s.toastPinned : s.toastUnpinned }); },
   });
 
+  const [captureText, setCaptureText] = useState("");
+  const captureMutation = useMutation({
+    mutationFn: (title: string) => apiRequest("POST", `/api/books/${bookId}/notes`, { title, content: "", type: "note", bookId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/books", bookId, "notes"] });
+      setCaptureText("");
+    },
+  });
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const orderedNotes = localOrder
@@ -1520,16 +1529,49 @@ export function NotesPanel({ bookId, aiPanelOpen, bookTitle }: { bookId: number;
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2 flex-shrink-0">
-        <StickyNote className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-        <h2 className="font-bold text-sm flex-1">{s.title}</h2>
-        <span className="text-[11px] text-muted-foreground/50">{s.count(notes.length)}</span>
+      <div className="border-b border-border flex-shrink-0">
+        <div className="px-4 py-3 flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(249,109,28,0.12)" }}>
+            <StickyNote className="h-3.5 w-3.5" style={{ color: "#F96D1C" }} />
+          </div>
+          <h2 className="font-bold text-sm flex-1">{s.title}</h2>
+          <span className="text-[11px] text-muted-foreground/40">{s.count(notes.length)}</span>
+          {!isTrashView && (
+            <button onClick={() => { setEditNote(undefined); setDialogPrefill(""); setShowDialog(true); }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)", color: "#fff" }}>
+              <Plus className="h-3 w-3" />{s.newBtn}
+            </button>
+          )}
+        </div>
+        {/* Quick-capture bar */}
         {!isTrashView && (
-          <button onClick={() => { setEditNote(undefined); setDialogPrefill(""); setShowDialog(true); }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex-shrink-0"
-            style={{ background: "rgba(249,109,28,0.1)", color: "#F96D1C", border: "1px solid rgba(249,109,28,0.2)" }}>
-            <Plus className="h-3 w-3" />{s.newBtn}
-          </button>
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground/40" />
+              <input
+                value={captureText}
+                onChange={e => setCaptureText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && captureText.trim()) {
+                    captureMutation.mutate(captureText.trim());
+                  }
+                }}
+                placeholder={s.quickCapture}
+                className="w-full rounded-xl pl-8 pr-10 py-2 outline-none text-xs bg-secondary/50 border border-border/50 focus:border-primary/30 focus:bg-background/80 transition-all placeholder:text-muted-foreground/40"
+              />
+              {captureText && (
+                <button
+                  disabled={captureMutation.isPending}
+                  onClick={() => { if (captureText.trim()) captureMutation.mutate(captureText.trim()); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-lg flex items-center justify-center transition-all"
+                  style={{ background: "rgba(249,109,28,0.15)", color: "#F96D1C" }}
+                >
+                  {captureMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -1734,10 +1776,19 @@ export function NotesPanel({ bookId, aiPanelOpen, bookTitle }: { bookId: number;
                     {Array.from({ length: 8 }).map((_, i) => <div key={i} className="bg-muted animate-pulse rounded-xl aspect-square" />)}
                   </div>
                 ) : isEmptyView ? (
-                  <div className="text-center py-10">
-                    <StickyNote className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
-                    <h3 className="font-semibold text-sm mb-1">{s.emptyTitle}</h3>
-                    <p className="text-muted-foreground text-xs max-w-[180px] mx-auto">{s.emptyDesc}</p>
+                  <div className="flex flex-col items-center justify-center h-full min-h-[220px] py-8 px-4">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                      style={{ background: "linear-gradient(135deg, rgba(249,109,28,0.12), rgba(251,146,60,0.06))", border: "1px solid rgba(249,109,28,0.15)" }}>
+                      <StickyNote className="h-7 w-7" style={{ color: "#F96D1C" }} />
+                    </div>
+                    <h3 className="font-semibold text-sm mb-1.5 text-center">{s.emptyTitle}</h3>
+                    <p className="text-muted-foreground text-xs max-w-[180px] text-center leading-relaxed mb-4">{s.emptyDesc}</p>
+                    <button
+                      onClick={() => { setEditNote(undefined); setDialogPrefill(""); setShowDialog(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+                      style={{ background: "linear-gradient(135deg, #F96D1C, #FB923C)", color: "#fff" }}>
+                      <Plus className="h-3 w-3" />{s.newBtn}
+                    </button>
                   </div>
                 ) : isEmptySearch ? (
                   <div className="text-center py-10">
