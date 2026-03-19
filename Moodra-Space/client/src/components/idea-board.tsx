@@ -132,6 +132,9 @@ const SHAPE_W = 120;
 const SHAPE_H = 90;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+}
 function getNodeSize(node: BoardNode) {
   const defaults: Record<string, { w: number; h: number }> = {
     sticky: { w: STICKY_W, h: STICKY_H },
@@ -842,7 +845,7 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
             </p>
             {node.content && (
               <p className="mt-1.5 leading-relaxed opacity-70 break-words" style={{ color: sc.text, fontSize: Math.max(9, 11 * zoom) }}>
-                {node.content}
+                {stripHtml(node.content)}
               </p>
             )}
           </div>
@@ -995,7 +998,7 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
           </p>
           {((linkedNote as any)?.content || node.content) && (
             <p className="mt-1 leading-relaxed" style={{ color: nc.text, fontSize: Math.max(9, 10 * zoom), opacity: 0.65, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-              {(linkedNote as any)?.content || node.content}
+              {stripHtml((linkedNote as any)?.content || node.content)}
             </p>
           )}
         </div>
@@ -1167,7 +1170,7 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
               onClick={() => setLeftPanelTab("library")}
               className={`flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-medium rounded-lg transition-all ${leftPanelTab === "library" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}
             >
-              <Library className="h-3 w-3" /> {s.library}
+              <StickyNote className="h-3 w-3" /> {s.notes}
             </button>
           </div>
 
@@ -1255,95 +1258,49 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
               </div>
             </>
           ) : (
-            /* ── Library Tab ── */
+            /* ── Notes Library Tab ── */
             <>
-              <div className="flex p-1 mx-3 my-2 bg-muted/20 rounded-xl border border-border/40">
-                <button onClick={() => setLibraryTab("notes")}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-medium rounded-lg transition-all ${libraryTab === "notes" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>
-                  <FileText className="h-3 w-3" /> {s.notes}
-                </button>
-                <button onClick={() => setLibraryTab("sources")}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1 text-[10px] font-medium rounded-lg transition-all ${libraryTab === "sources" ? "bg-background text-primary shadow-sm" : "text-muted-foreground"}`}>
-                  <BookOpen className="h-3 w-3" /> {s.sources}
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-2 pb-3">
-                {libraryTab === "notes" ? (
-                  notesData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-32 gap-2">
-                      <FileText className="h-8 w-8 text-muted-foreground/20" />
-                      <p className="text-xs text-muted-foreground/50 text-center px-4">{s.noNotes}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 py-1">
-                      {notesData.map((note: any) => {
-                        const nc = NOTE_COLOR_MAP[note.color] || NOTE_COLOR_MAP.yellow;
-                        const NoteIcon = NOTE_TYPE_ICONS[note.type] || FileText;
-                        const alreadyOnBoard = board.nodes.some(n => n.linkedId === note.id && n.linkedType === "note");
-                        return (
-                          <div key={note.id} className="group rounded-xl p-2.5 border border-border/50 hover:border-primary/30 transition-all" style={{ background: nc.bg }}>
-                            <div className="flex items-start gap-2">
-                              <NoteIcon style={{ width: 11, height: 11, color: nc.clip, flexShrink: 0, marginTop: 2 }} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-semibold truncate" style={{ color: nc.text }}>{note.title}</p>
-                                {note.content && <p className="text-[10px] opacity-60 line-clamp-1 mt-0.5" style={{ color: nc.text }}>{note.content}</p>}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => addNodeFromLib("note_card", note)}
-                              disabled={alreadyOnBoard}
-                              className="mt-2 w-full h-6 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                              style={{ background: alreadyOnBoard ? "transparent" : `${nc.clip}15`, color: alreadyOnBoard ? `${nc.clip}60` : nc.clip, border: `1px solid ${nc.clip}30` }}
-                            >
-                              {alreadyOnBoard ? <Check className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
-                              {alreadyOnBoard ? "On board" : s.addFromLib}
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
+              <div className="flex-1 overflow-y-auto px-2 pb-3 pt-2">
+                {notesData.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-32 gap-2">
+                    <StickyNote className="h-8 w-8 text-muted-foreground/20" />
+                    <p className="text-xs text-muted-foreground/50 text-center px-4">{s.noNotes}</p>
+                  </div>
                 ) : (
-                  sourcesData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-32 gap-2">
-                      <BookOpen className="h-8 w-8 text-muted-foreground/20" />
-                      <p className="text-xs text-muted-foreground/50 text-center px-4">{s.noSources}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 py-1">
-                      {sourcesData.map((src: any) => {
-                        const alreadyOnBoard = board.nodes.some(n => n.linkedId === src.id && n.linkedType === "source");
-                        return (
-                          <div key={src.id} className="group rounded-xl p-2.5 border border-green-200/60 hover:border-green-400/40 transition-all" style={{ background: "#F0FDF4" }}>
-                            <div className="flex items-start gap-2">
-                              <BookOpen style={{ width: 11, height: 11, color: "#16A34A", flexShrink: 0, marginTop: 2 }} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-semibold truncate text-green-900">{src.title}</p>
-                                {src.author && <p className="text-[10px] text-green-700/60 truncate">{src.author}</p>}
-                              </div>
+                  <div className="space-y-1.5 py-1">
+                    {notesData.map((note: any) => {
+                      const nc = NOTE_COLOR_MAP[note.color] || NOTE_COLOR_MAP.yellow;
+                      const NoteIcon = NOTE_TYPE_ICONS[note.type] || FileText;
+                      const alreadyOnBoard = board.nodes.some(n => n.linkedId === note.id && n.linkedType === "note");
+                      const plainContent = note.content ? stripHtml(note.content) : "";
+                      return (
+                        <div key={note.id} className="group rounded-xl p-2.5 border border-border/50 hover:border-primary/30 transition-all" style={{ background: nc.bg }}>
+                          <div className="flex items-start gap-2">
+                            <NoteIcon style={{ width: 11, height: 11, color: nc.clip, flexShrink: 0, marginTop: 2 }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold truncate" style={{ color: nc.text }}>{note.title}</p>
+                              {plainContent && <p className="text-[10px] opacity-60 line-clamp-1 mt-0.5" style={{ color: nc.text }}>{plainContent}</p>}
                             </div>
-                            <button
-                              onClick={() => addNodeFromLib("source_card", src)}
-                              disabled={alreadyOnBoard}
-                              className="mt-2 w-full h-6 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                              style={{ background: alreadyOnBoard ? "transparent" : "rgba(34,197,94,0.1)", color: alreadyOnBoard ? "#16A34A60" : "#16A34A", border: "1px solid rgba(34,197,94,0.3)" }}
-                            >
-                              {alreadyOnBoard ? <Check className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
-                              {alreadyOnBoard ? "On board" : s.addFromLib}
-                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )
+                          <button
+                            onClick={() => addNodeFromLib("note_card", note)}
+                            disabled={alreadyOnBoard}
+                            className="mt-2 w-full h-6 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            style={{ background: alreadyOnBoard ? "transparent" : `${nc.clip}15`, color: alreadyOnBoard ? `${nc.clip}60` : nc.clip, border: `1px solid ${nc.clip}30` }}
+                          >
+                            {alreadyOnBoard ? <Check className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
+                            {alreadyOnBoard ? "On board" : s.addFromLib}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </>
           )}
         </div>
       )}
-
       {/* ── Central canvas ─────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 relative">
 
@@ -1688,7 +1645,7 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
             {selectedNode.content && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{s.description}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{selectedNode.content}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{stripHtml(selectedNode.content)}</p>
               </div>
             )}
 
@@ -1715,7 +1672,7 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
                   return note ? (
                     <div>
                       <p className="text-xs font-semibold truncate">{note.title}</p>
-                      {note.content && <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{note.content}</p>}
+                      {note.content && <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{stripHtml(note.content)}</p>}
                     </div>
                   ) : <p className="text-xs text-muted-foreground">Note not found</p>;
                 })()}
