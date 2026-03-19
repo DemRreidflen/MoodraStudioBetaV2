@@ -1913,26 +1913,80 @@ export function IdeaBoard({ bookId, book }: { bookId: number; book: Book }) {
         const note = notesData.find((n: any) => n.id === linkedCardPopup.linkedId) as any;
         if (!note) return null;
         const nc = NOTE_COLOR_MAP[note.color] || NOTE_COLOR_MAP.yellow;
+        const NoteTypeIcon = NOTE_TYPE_ICONS[note.type] || FileText;
+        // Load chains from localStorage and find which ones include this note
+        let allChains: { id: string; name: string; color: string; noteIds: number[] }[] = [];
+        try { allChains = JSON.parse(localStorage.getItem(`moodra_note_chains_${bookId}`) || "[]"); } catch {}
+        const noteChains = allChains.filter(c => c.noteIds.includes(note.id));
         return (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/15" onClick={() => setLinkedCardPopup(null)}>
-            <div className="w-96 max-w-[95vw] rounded-2xl shadow-2xl overflow-hidden" style={{ background: nc.bg, border: `1.5px solid ${nc.clip}40` }} onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: `${nc.clip}20`, background: `${nc.clip}10` }}>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-[1px]" onClick={() => setLinkedCardPopup(null)}>
+            <div className="w-[420px] max-w-[95vw] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              style={{ background: nc.bg, border: `1.5px solid ${nc.clip}40` }} onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{ borderColor: `${nc.clip}20`, background: `${nc.clip}10` }}>
                 <div className="flex items-center gap-2">
-                  <Link2 style={{ width: 14, height: 14, color: nc.clip }} />
+                  <NoteTypeIcon style={{ width: 14, height: 14, color: nc.clip }} />
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: nc.clip }}>{s.linkedNote}</span>
                 </div>
                 <button onClick={() => setLinkedCardPopup(null)} style={{ color: nc.text }}><X className="h-4 w-4" /></button>
               </div>
-              <div className="p-4">
-                <h3 className="font-bold text-base mb-2" style={{ color: nc.text }}>{note.title}</h3>
-                {note.content && <p className="text-sm leading-relaxed opacity-80" style={{ color: nc.text }}>{note.content}</p>}
-                {note.tags && (
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {note.tags.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string) => (
-                      <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${nc.clip}15`, color: `${nc.clip}CC` }}>#{tag}</span>
-                    ))}
-                  </div>
-                )}
+
+              <div className="overflow-y-auto">
+                {/* Note content */}
+                <div className="p-4 border-b" style={{ borderColor: `${nc.clip}15` }}>
+                  <h3 className="font-bold text-base mb-2" style={{ color: nc.text }}>{note.title}</h3>
+                  {note.content && (
+                    <p className="text-sm leading-relaxed opacity-80" style={{ color: nc.text }}>
+                      {stripHtml(note.content)}
+                    </p>
+                  )}
+                  {note.tags && (
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {note.tags.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string) => (
+                        <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${nc.clip}15`, color: `${nc.clip}CC` }}>#{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Chains — show chronological list for each chain this note belongs to */}
+                {noteChains.map(chain => {
+                  const chainNotes = chain.noteIds
+                    .map((id: number) => notesData.find((n: any) => n.id === id) as any)
+                    .filter(Boolean);
+                  return (
+                    <div key={chain.id} className="px-4 py-3 border-b last:border-0" style={{ borderColor: `${nc.clip}15` }}>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: chain.color }} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: chain.color }}>{chain.name}</span>
+                        <span className="text-[10px] text-muted-foreground/50">· {chainNotes.length} notes</span>
+                      </div>
+                      <div className="space-y-1">
+                        {chainNotes.map((cn: any, idx: number) => {
+                          const isCurrent = cn.id === note.id;
+                          const cnc = NOTE_COLOR_MAP[cn.color] || NOTE_COLOR_MAP.yellow;
+                          return (
+                            <div key={cn.id}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors"
+                              style={{ background: isCurrent ? `${chain.color}15` : "transparent", border: isCurrent ? `1px solid ${chain.color}30` : "1px solid transparent" }}>
+                              <span className="text-[9px] font-mono text-muted-foreground/50 w-4 flex-shrink-0 text-right">{idx + 1}</span>
+                              <div className="w-1 flex-shrink-0 self-stretch rounded-full" style={{ background: chain.color, opacity: isCurrent ? 1 : 0.3, minHeight: 14 }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate" style={{ color: isCurrent ? chain.color : nc.text, fontWeight: isCurrent ? 700 : 500 }}>
+                                  {cn.title}
+                                </p>
+                                {cn.content && !isCurrent && (
+                                  <p className="text-[10px] opacity-50 truncate" style={{ color: nc.text }}>{stripHtml(cn.content)}</p>
+                                )}
+                              </div>
+                              {isCurrent && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: chain.color }} />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
