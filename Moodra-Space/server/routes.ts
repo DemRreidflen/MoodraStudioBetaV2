@@ -2494,7 +2494,8 @@ ${body}
     const FONT = "Georgia";
     const BODY_SIZE = 24;
     const H1_SIZE = 32;
-    const H2_SIZE = 26;
+    const H2_SIZE = 28;
+    const H3_SIZE = 26;
     const LINE_SPACING = { rule: LineRuleType.EXACT, value: 360 };
     const MARGINS = {
       top: convertInchesToTwip(1),
@@ -2503,11 +2504,60 @@ ${body}
       right: convertInchesToTwip(1),
     };
 
+    // ─── Inline HTML → run options ────────────────────────────────────────────
+    type RunOpt = { text: string; bold?: true; italics?: true; underline?: {}; strike?: true; color?: string };
+    function htmlToRunOpts(html: string, defaultColor?: string): RunOpt[] {
+      const opts: RunOpt[] = [];
+      if (!html) return opts;
+      const decode = (s: string) =>
+        s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+         .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
+      let bold = false, italic = false, underline = false, strike = false;
+      let i = 0;
+      while (i < html.length) {
+        if (html[i] === "<") {
+          const end = html.indexOf(">", i);
+          if (end === -1) { i++; continue; }
+          const inner = html.slice(i + 1, end).trim().toLowerCase();
+          const isClose = inner.startsWith("/");
+          const tagName = (isClose ? inner.slice(1) : inner).split(/[\s/]/)[0];
+          if (tagName === "br") opts.push({ text: "\n" });
+          else if (!isClose) {
+            if (tagName === "strong" || tagName === "b") bold = true;
+            else if (tagName === "em" || tagName === "i") italic = true;
+            else if (tagName === "u") underline = true;
+            else if (tagName === "s" || tagName === "del" || tagName === "strike") strike = true;
+          } else {
+            if (tagName === "strong" || tagName === "b") bold = false;
+            else if (tagName === "em" || tagName === "i") italic = false;
+            else if (tagName === "u") underline = false;
+            else if (tagName === "s" || tagName === "del" || tagName === "strike") strike = false;
+          }
+          i = end + 1;
+        } else {
+          const nextTag = html.indexOf("<", i);
+          const chunk = decode(html.slice(i, nextTag === -1 ? undefined : nextTag));
+          if (chunk) {
+            const opt: RunOpt = { text: chunk };
+            if (bold) opt.bold = true;
+            if (italic) opt.italics = true;
+            if (underline) opt.underline = {};
+            if (strike) opt.strike = true;
+            if (defaultColor) opt.color = defaultColor;
+            opts.push(opt);
+          }
+          i = nextTag === -1 ? html.length : nextTag;
+        }
+      }
+      return opts;
+    }
+
+    const mkRuns = (html: string, overrides: Partial<RunOpt> = {}) =>
+      htmlToRunOpts(html).map(o => new TextRun({ font: FONT, size: BODY_SIZE, ...o, ...overrides }));
+
     const tocEntries = chapters.map((ch, i) =>
       new Paragraph({
-        children: [
-          new TextRun({ text: `${i + 1}.  ${ch.title}`, font: FONT, size: BODY_SIZE, color: "444444" }),
-        ],
+        children: [new TextRun({ text: `${i + 1}.  ${ch.title}`, font: FONT, size: BODY_SIZE, color: "444444" })],
         spacing: { before: 60, after: 60 },
       })
     );
@@ -2548,25 +2598,122 @@ ${body}
       );
 
       for (const block of blocks) {
-        const text = String(block.content || block.text || "").trim();
-        if (!text) continue;
-        if (block.type === "heading") {
-          allChildren.push(new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: H2_SIZE, bold: true })],
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 240, after: 120 },
-          }));
-        } else if (block.type === "quote") {
-          allChildren.push(new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: BODY_SIZE, italics: true, color: "555555" })],
-            indent: { left: convertInchesToTwip(0.5) },
-            spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
-          }));
-        } else {
-          allChildren.push(new Paragraph({
-            children: [new TextRun({ text, font: FONT, size: BODY_SIZE })],
-            spacing: { before: 0, after: 160, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
-          }));
+        const rawHtml = String(block.content || block.text || "");
+        const indentLevel = Math.max(0, Math.min(8, Number(block.metadata?.indentLevel ?? 0)));
+        const indentLeft = convertInchesToTwip(0.4 + indentLevel * 0.4);
+
+        if (!rawHtml && block.type !== "divider") continue;
+
+        switch (block.type) {
+          case "h1":
+          case "heading":
+            allChildren.push(new Paragraph({
+              children: mkRuns(rawHtml, { size: H1_SIZE, bold: true }),
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 360, after: 180 },
+            }));
+            break;
+          case "h2":
+            allChildren.push(new Paragraph({
+              children: mkRuns(rawHtml, { size: H2_SIZE, bold: true }),
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 280, after: 140 },
+            }));
+            break;
+          case "h3":
+            allChildren.push(new Paragraph({
+              children: mkRuns(rawHtml, { size: H3_SIZE, bold: true }),
+              spacing: { before: 220, after: 100 },
+            }));
+            break;
+          case "quote":
+            allChildren.push(new Paragraph({
+              children: mkRuns(rawHtml, { italics: true, color: "555555" }),
+              indent: { left: convertInchesToTwip(0.6 + indentLevel * 0.4), right: convertInchesToTwip(0.3) },
+              spacing: { before: 160, after: 160, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+              border: { left: { style: BorderStyle.SINGLE, size: 6, color: "CCCCCC", space: 8 } },
+            }));
+            break;
+          case "bullet_item":
+            allChildren.push(new Paragraph({
+              children: [
+                new TextRun({ text: "•\t", font: FONT, size: BODY_SIZE }),
+                ...mkRuns(rawHtml),
+              ],
+              indent: { left: indentLeft + convertInchesToTwip(0.3), hanging: convertInchesToTwip(0.22) },
+              spacing: { before: 60, after: 60, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "numbered_item":
+            allChildren.push(new Paragraph({
+              children: [
+                new TextRun({ text: "–\t", font: FONT, size: BODY_SIZE }),
+                ...mkRuns(rawHtml),
+              ],
+              indent: { left: indentLeft + convertInchesToTwip(0.3), hanging: convertInchesToTwip(0.22) },
+              spacing: { before: 60, after: 60, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "check_item":
+            allChildren.push(new Paragraph({
+              children: [
+                new TextRun({ text: block.metadata?.checked ? "☑\t" : "☐\t", font: FONT, size: BODY_SIZE }),
+                ...mkRuns(rawHtml),
+              ],
+              indent: { left: indentLeft + convertInchesToTwip(0.3), hanging: convertInchesToTwip(0.22) },
+              spacing: { before: 60, after: 60, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "divider":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "— — —", font: FONT, size: BODY_SIZE, color: "AAAAAA" })],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 280, after: 280 },
+            }));
+            break;
+          case "hypothesis":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "◆  ", font: FONT, size: BODY_SIZE, color: "6366F1" }), ...mkRuns(rawHtml)],
+              indent: { left: indentLeft },
+              spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "argument":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "✓  ", font: FONT, size: BODY_SIZE, color: "22C55E" }), ...mkRuns(rawHtml)],
+              indent: { left: indentLeft },
+              spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "counterargument":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "✕  ", font: FONT, size: BODY_SIZE, color: "EF4444" }), ...mkRuns(rawHtml)],
+              indent: { left: indentLeft },
+              spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "idea":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "☆  ", font: FONT, size: BODY_SIZE, color: "F59E0B" }), ...mkRuns(rawHtml)],
+              indent: { left: indentLeft },
+              spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          case "question":
+            allChildren.push(new Paragraph({
+              children: [new TextRun({ text: "?  ", font: FONT, size: BODY_SIZE, color: "0EA5E9" }), ...mkRuns(rawHtml)],
+              indent: { left: indentLeft },
+              spacing: { before: 120, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
+            break;
+          default:
+            allChildren.push(new Paragraph({
+              children: mkRuns(rawHtml),
+              indent: indentLevel > 0
+                ? { left: indentLeft }
+                : { firstLine: convertInchesToTwip(0.4) },
+              spacing: { before: 0, after: 120, line: LINE_SPACING.value, lineRule: LINE_SPACING.rule },
+            }));
         }
       }
     }
