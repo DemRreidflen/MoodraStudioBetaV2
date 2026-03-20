@@ -184,7 +184,6 @@ const COVER_COLORS = [
 ];
 
 const BOOK_LANGUAGES = [
-  { value: "ru", label: "Русский" },
   { value: "ua", label: "Українська" },
   { value: "pl", label: "Polski" },
   { value: "cs", label: "Čeština" },
@@ -198,6 +197,7 @@ const BOOK_LANGUAGES = [
   { value: "it", label: "Italiano" },
   { value: "zh", label: "中文" },
   { value: "ja", label: "日本語" },
+  { value: "ru", label: "Русский" },
 ];
 
 export function BookSettings({ book }: { book: Book }) {
