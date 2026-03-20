@@ -185,7 +185,13 @@ const COVER_COLORS = [
 
 const BOOK_LANGUAGES = [
   { value: "ru", label: "Русский" },
+  { value: "ua", label: "Українська" },
+  { value: "pl", label: "Polski" },
+  { value: "cs", label: "Čeština" },
+  { value: "kk", label: "Қазақша" },
   { value: "en", label: "English" },
+  { value: "en-GB", label: "English (UK)" },
+  { value: "en-CA", label: "English (Canada)" },
   { value: "de", label: "Deutsch" },
   { value: "fr", label: "Français" },
   { value: "es", label: "Español" },
